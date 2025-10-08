@@ -30,25 +30,26 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
 
     async_add_entities(devices)
 
-    platform = entity_platform.current_platform.get()
+    # ✅ Regista serviços no domínio, não via entity_platform
+    async def handle_set_known_position(call):
+        target_entities = [e for e in devices if e.entity_id in call.data.get("entity_id", [])]
+        for entity in target_entities:
+            await entity.set_known_position(**call.data)
 
-    # Registo dos entity services usando target
-    await platform.async_register_entity_service(
+    async def handle_set_known_action(call):
+        target_entities = [e for e in devices if e.entity_id in call.data.get("entity_id", [])]
+        for entity in target_entities:
+            await entity.set_known_action(**call.data)
+
+    hass.services.async_register(
+        "cover_rf_time_based",
         SERVICE_SET_KNOWN_POSITION,
-        {
-            vol.Required(ATTR_POSITION): vol.All(vol.Coerce(int)),
-            vol.Optional(ATTR_CONFIDENT, default=False): vol.Boolean(),
-            vol.Optional(ATTR_POSITION_TYPE, default=ATTR_POSITION_TYPE_TARGET): vol.In([ATTR_POSITION_TYPE_TARGET, ATTR_POSITION_TYPE_CURRENT])
-        },
-        "set_known_position"
+        handle_set_known_position,
     )
-
-    await platform.async_register_entity_service(
+    hass.services.async_register(
+        "cover_rf_time_based",
         SERVICE_SET_KNOWN_ACTION,
-        {
-            vol.Required(ATTR_ACTION): vol.In(["open", "close", "stop"])
-        },
-        "set_known_action"
+        handle_set_known_action,
     )
 
 class CoverRFTimeBased(RestoreEntity, CoverEntity):
