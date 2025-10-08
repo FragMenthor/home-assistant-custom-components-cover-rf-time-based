@@ -3,10 +3,7 @@
 import logging
 import voluptuous as vol
 from homeassistant.helpers import entity_platform
-from homeassistant.components.cover import (
-    CoverEntity,
-    CoverEntityFeature
-)
+from homeassistant.components.cover import CoverEntity, CoverEntityFeature
 from homeassistant.helpers.restore_state import RestoreEntity
 from .const import (
     SERVICE_SET_KNOWN_POSITION,
