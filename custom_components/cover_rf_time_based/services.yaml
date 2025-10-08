@@ -1,6 +1,6 @@
 set_known_position:
   name: "Set Known Position"
-  description: "Define a posição conhecida para uma cover (estores, portadas, etc)."
+  description: "Define a posição conhecida para uma cover."
   target:
     entity:
       domain: cover
@@ -36,7 +36,7 @@ set_known_position:
 
 set_known_action:
   name: "Set Known Action"
-  description: "Define a ação conhecida (abrir, fechar ou parar) para a cover."
+  description: "Define uma ação conhecida (abrir, fechar ou parar) para a cover."
   target:
     entity:
       domain: cover
