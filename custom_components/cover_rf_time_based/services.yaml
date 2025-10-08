@@ -1,51 +1,29 @@
 set_known_position:
-  name: Set known position
-  description: Inform the integration about a known cover position without triggering any action.
-  target:
-    entity:
-      domain: cover
+  name: "Set Known Position"
+  description: "Define a posição conhecida para a cobertura (cover)."
   fields:
     position:
-      name: Position
-      description: Desired or current position of the cover (0–100).
+      name: "Posição"
+      description: "Posição (0 a 100)."
       example: 50
-      selector:
-        number:
-          min: 0
-          max: 100
-          unit_of_measurement: "%"
+      required: true
     confident:
-      name: Confident
-      description: Whether this position is known with confidence (default: false). Affects whether the entity assumes or confirms its state.
+      name: "Confiante"
+      description: "Indica se a posição é confiável / confirmada."
       example: true
-      default: false
-      selector:
-        boolean: {}
+      required: false
     position_type:
-      name: Position type
-      description: Whether the given position refers to the target or the current position. Defaults to "target".
-      example: current
-      default: target
-      selector:
-        select:
-          options:
-            - target
-            - current
+      name: "Tipo de Posição"
+      description: "Tipo de posição ('target' ou 'current')."
+      example: "target"
+      required: false
 
 set_known_action:
-  name: Set known action
-  description: Notify Home Assistant of a known cover action (open, close, or stop) captured externally, without triggering commands.
-  target:
-    entity:
-      domain: cover
+  name: "Set Known Action"
+  description: "Define a ação conhecida (open, close ou stop) para a cobertura."
   fields:
     action:
-      name: Action
-      description: Must be one of "open", "close", or "stop".
-      example: open
-      selector:
-        select:
-          options:
-            - open
-            - close
-            - stop
+      name: "Ação"
+      description: "Ação a definir ('open', 'close' ou 'stop')."
+      example: "open"
+      required: true
