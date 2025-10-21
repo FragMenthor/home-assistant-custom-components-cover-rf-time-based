@@ -1,112 +1,66 @@
-"""Cover RF Time Based integration - versão compatível HA 2025.10+."""
-
+"""Entidade Cover RF Time Based."""
 import logging
-import voluptuous as vol
-from homeassistant.helpers import entity_platform
 from homeassistant.components.cover import CoverEntity, CoverEntityFeature
-from homeassistant.helpers.restore_state import RestoreEntity
-from .const import (
-    SERVICE_SET_KNOWN_POSITION,
-    SERVICE_SET_KNOWN_ACTION,
-    ATTR_POSITION,
-    ATTR_CONFIDENT,
-    ATTR_POSITION_TYPE,
-    ATTR_ACTION,
-    ATTR_POSITION_TYPE_TARGET,
-    ATTR_POSITION_TYPE_CURRENT,
-)
+from homeassistant.helpers.event import async_track_time_interval
+from datetime import timedelta
+from .travelcalculator import TravelCalculator, TravelStatus
+from . import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    """Configuração da plataforma cover_rf_time_based via YAML."""
-    devices_conf = config.get("devices", {})
 
-    devices = []
-    for device_key, device_config in devices_conf.items():
-        name = device_config.get("name", device_key)
-        device = CoverRFTimeBased(name=name, unique_id=device_key)
-        devices.append(device)
+async def async_setup_entry(hass, config_entry, async_add_entities):
+    data = {**config_entry.data, **config_entry.options}
+    name = data["name"]
 
-    async_add_entities(devices)
-
-    # ✅ Regista serviços no domínio, não via entity_platform
-    async def handle_set_known_position(call):
-        target_entities = [e for e in devices if e.entity_id in call.data.get("entity_id", [])]
-        for entity in target_entities:
-            await entity.set_known_position(**call.data)
-
-    async def handle_set_known_action(call):
-        target_entities = [e for e in devices if e.entity_id in call.data.get("entity_id", [])]
-        for entity in target_entities:
-            await entity.set_known_action(**call.data)
-
-    hass.services.async_register(
-        "cover_rf_time_based",
-        SERVICE_SET_KNOWN_POSITION,
-        handle_set_known_position,
-    )
-    hass.services.async_register(
-        "cover_rf_time_based",
-        SERVICE_SET_KNOWN_ACTION,
-        handle_set_known_action,
+    entity = CoverRFTimeBased(
+        name=name,
+        travelling_time_up=data.get("travelling_time_up", 25),
+        travelling_time_down=data.get("travelling_time_down", 25),
+        open_script=data.get("open_script_entity_id"),
+        close_script=data.get("close_script_entity_id"),
+        stop_script=data.get("stop_script_entity_id"),
+        send_stop_at_ends=data.get("send_stop_at_ends", False),
     )
 
-class CoverRFTimeBased(RestoreEntity, CoverEntity):
-    """Entidade de cover RF Time Based compatível HA 2025.10+."""
+    async_add_entities([entity])
 
-    def __init__(self, name, unique_id=None):
-        self._name = name
-        self._unique_id = unique_id
-        self._position = 0
-        self._status = "stopped"
 
-        # Atributos recomendados pelo HA 2025.10+
-        self._attr_is_closed = self._position == 0
-        self._attr_is_opening = False
-        self._attr_is_closing = False
-        self._attr_current_cover_position = self._position
-
-    @property
-    def name(self):
-        return self._name
-
-    @property
-    def unique_id(self):
-        return self._unique_id
-
-    @property
-    def supported_features(self):
-        return (
-            CoverEntityFeature.OPEN
-            | CoverEntityFeature.CLOSE
-            | CoverEntityFeature.STOP
-            | CoverEntityFeature.SET_POSITION
+class CoverRFTimeBased(CoverEntity):
+    def __init__(self, name, travelling_time_up, travelling_time_down, open_script, close_script, stop_script, send_stop_at_ends):
+        self._attr_name = name
+        self._travel = TravelCalculator(travelling_time_down, travelling_time_up)
+        self._attr_supported_features = (
+            CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE | CoverEntityFeature.STOP | CoverEntityFeature.SET_POSITION
         )
+        self._open_script = open_script
+        self._close_script = close_script
+        self._stop_script = stop_script
+        self._send_stop_at_ends = send_stop_at_ends
+        self._attr_is_closed = None
 
-    @property
-    def current_cover_position(self):
-        return self._attr_current_cover_position
+    async def async_added_to_hass(self):
+        async_track_time_interval(self.hass, self._update_travel, timedelta(seconds=1))
 
-    def _update_state_attributes(self):
-        """Atualiza os atributos internos _attr_* para HA 2025.10+."""
-        self._attr_is_closed = self._position == 0
-        self._attr_is_opening = self._status == "open"
-        self._attr_is_closing = self._status == "close"
-        self._attr_current_cover_position = self._position
-
-    async def set_known_position(self, **kwargs):
-        """Define a posição conhecida da cover."""
-        self._position = kwargs.get(ATTR_POSITION, self._position)
-        self._update_state_attributes()
+    async def _update_travel(self, _now):
+        self._attr_current_cover_position = self._travel.current_position()
+        self._attr_is_closed = self._attr_current_cover_position == 0
         self.async_write_ha_state()
 
-    async def set_known_action(self, **kwargs):
-        """Define a ação conhecida da cover (open, close, stop)."""
-        action = kwargs.get(ATTR_ACTION)
-        if action in ["open", "close", "stop"]:
-            self._status = action
-            self._update_state_attributes()
-            self.async_write_ha_state()
-        else:
-            _LOGGER.warning(f"Ação desconhecida recebida: {action}")
+    async def async_open_cover(self, **kwargs):
+        self._travel.start_moving(TravelStatus.OPENING, 100)
+        if self._open_script:
+            await self.hass.services.async_call("script", "turn_on", {"entity_id": self._open_script})
+        self.async_write_ha_state()
+
+    async def async_close_cover(self, **kwargs):
+        self._travel.start_moving(TravelStatus.CLOSING, 0)
+        if self._close_script:
+            await self.hass.services.async_call("script", "turn_on", {"entity_id": self._close_script})
+        self.async_write_ha_state()
+
+    async def async_stop_cover(self, **kwargs):
+        self._travel.stop()
+        if self._stop_script:
+            await self.hass.services.async_call("script", "turn_on", {"entity_id": self._stop_script})
+        self.async_write_ha_state()
