@@ -1,11 +1,17 @@
 {
-  "domain": "cover_rf_time_based",
-  "name": "Cover RF Time Based",
-  "version": "2.1.0",
+  "domain": "cover_time_based",
+  "name": "Cover Time Based",
+  "version": "2.4.0",
   "documentation": "https://github.com/FragMenthor/home-assistant-custom-components-cover-rf-time-based",
+  "issue_tracker": "https://github.com/FragMenthor/home-assistant-custom-components-cover-rf-time-based/issues",
   "requirements": [],
   "dependencies": [],
-  "codeowners":  ["@davidramosweb", "@nagyrobi", "@Alfiegerner", "@FragMenthor"],
+  "codeowners": [
+    "@davidramosweb",
+    "@nagyrobi",
+    "@Alfiegerner",
+    "@FragMenthor"
+  ],
   "config_flow": true,
   "iot_class": "assumed_state"
 }
