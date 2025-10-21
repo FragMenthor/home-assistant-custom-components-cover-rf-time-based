@@ -1,51 +1,48 @@
 set_known_position:
-  name: "Set Known Position"
-  description: "Define a posição conhecida para uma cover."
+  name: "Definir posição conhecida"
+  description: "Define manualmente a posição conhecida de uma cobertura."
   target:
     entity:
       domain: cover
   fields:
     position:
-      name: "Posição"
-      description: "Posição (0 a 100)."
+      name: Posição
+      description: Valor de 0 a 100 representando a posição atual ou destino.
       example: 50
       required: true
       selector:
         number:
           min: 0
           max: 100
-          mode: slider
           unit_of_measurement: "%"
     confident:
-      name: "Confiante"
-      description: "Indica se a posição é considerada confiável (confirmada)."
-      example: true
-      required: false
+      name: Confiante
+      description: Indica se a posição é confirmada (verdadeira).
+      default: false
       selector:
         boolean: {}
     position_type:
-      name: "Tipo de Posição"
-      description: "Tipo de posição ('target' ou 'current')."
-      example: "target"
-      required: false
+      name: Tipo de posição
+      description: Pode ser "current" ou "target".
+      default: "target"
       selector:
         select:
           options:
-            - "target"
             - "current"
+            - "target"
 
 set_known_action:
-  name: "Set Known Action"
-  description: "Define uma ação conhecida (abrir, fechar ou parar) para a cover."
+  name: "Definir ação conhecida"
+  description: "Define manualmente a ação atual da cobertura (abrir, fechar, parar)."
   target:
     entity:
       domain: cover
   fields:
     action:
-      name: "Ação"
-      description: "Ação a definir ('open', 'close' ou 'stop')."
-      example: "open"
+      name: Ação
+      description: A ação atual.
       required: true
+      example: "open"
       selector:
         select:
           options:
