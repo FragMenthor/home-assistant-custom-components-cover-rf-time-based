@@ -36,7 +36,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
-    # Registo dos serviços de integração (chamam métodos nas entidades)
+    # Schemas dos serviços
     position_schema = vol.Schema(
         {
             vol.Required(ATTR_POSITION): vol.All(int, vol.Range(min=0, max=100)),
