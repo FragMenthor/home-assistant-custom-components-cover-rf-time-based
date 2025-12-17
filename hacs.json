@@ -1,5 +1,5 @@
 {
-  "name": "Cover RF Time Based",
+  "name": "Cover Time Based Sync",
   "content_in_root": false,
   "render_readme": false,
   "domains": ["cover"],
