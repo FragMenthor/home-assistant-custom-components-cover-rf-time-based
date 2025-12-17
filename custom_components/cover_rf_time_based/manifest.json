@@ -1,7 +1,7 @@
 {
-  "domain": "cover_time_based",
-  "name": "Cover Time Based",
-  "version": "2.4.0",
+  "domain": "cover_time_based_sync",
+  "name": "Cover Time Based Sync",
+  "version": "3.0.0",
   "documentation": "https://github.com/FragMenthor/home-assistant-custom-components-cover-rf-time-based",
   "issue_tracker": "https://github.com/FragMenthor/home-assistant-custom-components-cover-rf-time-based/issues",
   "requirements": [],
