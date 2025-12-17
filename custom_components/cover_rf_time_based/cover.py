@@ -2,10 +2,11 @@
 
 import logging
 import voluptuous as vol
-from homeassistant.helpers import entity_platform
 from homeassistant.components.cover import CoverEntity, CoverEntityFeature
 from homeassistant.helpers.restore_state import RestoreEntity
 from . import DOMAIN
+from homeassistant.helpers import service as ha_service
+from homeassistant.components.cover import DOMAIN as COVER_DOMAIN
 from .const import (
     SERVICE_SET_KNOWN_POSITION,
     SERVICE_SET_KNOWN_ACTION,
@@ -16,16 +17,13 @@ from .const import (
     ATTR_POSITION_TYPE_TARGET,
     ATTR_POSITION_TYPE_CURRENT,
 )
-
+import homeassistant.helpers.config_validation as cv
 _LOGGER = logging.getLogger(__name__)
-
-SERVICE_SET_KNOWN_POSITION = "set_known_position"
-SERVICE_SET_KNOWN_ACTION = "set_known_action"
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
     """Configuração da plataforma cover_rf_time_based via YAML."""
     devices_conf = config.get("devices", {})
-
+    
     devices = []
     for device_key, device_config in devices_conf.items():
         name = device_config.get("name", device_key)
@@ -33,17 +31,6 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         devices.append(device)
 
     async_add_entities(devices)
-
-    # ✅ Regista serviços no domínio, não via entity_platform
-    async def handle_set_known_position(call):
-        target_entities = [e for e in devices if e.entity_id in call.data.get("entity_id", [])]
-        for entity in target_entities:
-            await entity.set_known_position(**call.data)
-
-    async def handle_set_known_action(call):
-        target_entities = [e for e in devices if e.entity_id in call.data.get("entity_id", [])]
-        for entity in target_entities:
-            await entity.set_known_action(**call.data)
 
     hass.services.async_register(
         "cover_rf_time_based",
@@ -55,19 +42,39 @@ async def async_setup_platform(hass, config, async_add_entities, discovery_info=
         SERVICE_SET_KNOWN_ACTION,
         handle_set_known_action,
     )
+    
+    platform = entity_platform.async_get_current_platform()
+    
+    platform.async_register_entity_service(
+        SERVICE_SET_KNOWN_POSITION,
+        {
+            vol.Required(ATTR_POSITION): cv.positive_int,
+            vol.Optional(ATTR_CONFIDENT, default=False): cv.boolean,
+            vol.Optional(ATTR_POSITION_TYPE, default=ATTR_POSITION_TYPE_TARGET): cv.string,
+        },
+        "set_known_position",
+    )
+    
+    platform.async_register_entity_service(
+        SERVICE_SET_KNOWN_ACTION,
+        {
+            vol.Required(ATTR_ACTION): vol.In(["open", "close", "stop"]),
+        },
+        "set_known_action",
+    )
 
 class CoverRFTimeBased(RestoreEntity, CoverEntity):
     """Entidade de cover RF Time Based compatível HA 2025.10+."""
 
     has_entity_name = True
 
-    def __init__(self, name, unique_id=None):
+    def __init__(self, name, unique_id):
         self._position = 0
         self._status = "stopped"
 
         # Atributos recomendados pelo HA 2025.10+
         self._attr_name = name
-        self._attr_unique_id = f"{DOMAIN}_{device_id}"
+        self._attr_unique_id = f"{DOMAIN}_{unique_id}"
         self._attr_is_closed = self._position == 0
         self._attr_is_opening = False
         self._attr_is_closing = False
