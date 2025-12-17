@@ -8,7 +8,6 @@ from . import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
-
 async def async_setup_entry(hass, config_entry, async_add_entities):
     data = {**config_entry.data, **config_entry.options}
     name = data["name"]
@@ -27,8 +26,10 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
 
 
 class CoverRFTimeBased(CoverEntity):
+    has_entity_name = True
     def __init__(self, name, travelling_time_up, travelling_time_down, open_script, close_script, stop_script, send_stop_at_ends):
         self._attr_name = name
+        self._attr_unique_id = f"{DOMAIN}_{device_id}"
         self._travel = TravelCalculator(travelling_time_down, travelling_time_up)
         self._attr_supported_features = (
             CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE | CoverEntityFeature.STOP | CoverEntityFeature.SET_POSITION
