@@ -3,6 +3,7 @@
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.helpers import selector
 
 from .const import (
     DOMAIN,
@@ -42,9 +43,15 @@ class CoverTimeBasedSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(
                     CONF_TRAVELLING_TIME_DOWN, default=DEFAULT_TRAVEL_TIME
                 ): int,
-                vol.Optional(CONF_OPEN_SCRIPT): str,
-                vol.Optional(CONF_CLOSE_SCRIPT): str,
-                vol.Optional(CONF_STOP_SCRIPT): str,
+                vol.Optional(CONF_OPEN_SCRIPT): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="script")
+                ),
+                vol.Optional(CONF_CLOSE_SCRIPT): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="script")
+                ),
+                vol.Optional(CONF_STOP_SCRIPT): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="script")
+                ),
                 vol.Optional(CONF_SEND_STOP_AT_ENDS, default=False): bool,
                 vol.Optional(CONF_ALWAYS_CONFIDENT, default=False): bool,
                 vol.Optional(CONF_ALIASES, default=""): str,
@@ -90,15 +97,21 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_OPEN_SCRIPT,
                     default=options.get(CONF_OPEN_SCRIPT, data.get(CONF_OPEN_SCRIPT)),
-                ): str,
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="script")
+                ),
                 vol.Optional(
                     CONF_CLOSE_SCRIPT,
                     default=options.get(CONF_CLOSE_SCRIPT, data.get(CONF_CLOSE_SCRIPT)),
-                ): str,
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="script")
+                ),
                 vol.Optional(
                     CONF_STOP_SCRIPT,
                     default=options.get(CONF_STOP_SCRIPT, data.get(CONF_STOP_SCRIPT)),
-                ): str,
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain="script")
+                ),
                 vol.Optional(
                     CONF_SEND_STOP_AT_ENDS,
                     default=options.get(
