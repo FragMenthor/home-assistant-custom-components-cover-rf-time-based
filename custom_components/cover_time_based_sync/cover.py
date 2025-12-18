@@ -288,4 +288,4 @@ class CoverTimeBasedSyncCover(RestoreEntity, CoverEntity):
         elif action == "stop":
             await self.async_stop_cover()
         else:
-            _LOGGER.warning("Ação desconhecida recebida
+            _LOGGER.warning("Ação desconhecida recebida: %s", action)
