@@ -11,6 +11,7 @@ CONF_STOP_SCRIPT = "stop_script_entity_id"
 CONF_SEND_STOP_AT_ENDS = "send_stop_at_ends"
 CONF_ALIASES = "aliases"
 CONF_ALWAYS_CONFIDENT = "always_confident"
+CONF_SMART_STOP = "smart_stop_midrange"
 
 SERVICE_SET_KNOWN_POSITION = "set_known_position"
 SERVICE_SET_KNOWN_ACTION = "set_known_action"
