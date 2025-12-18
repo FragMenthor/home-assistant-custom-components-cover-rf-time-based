@@ -15,6 +15,7 @@ With this component you can add a time-based cover. You have to set triggering s
     "@davidramosweb",
     "@nagyrobi",
     "@Alfiegerner",
-    "@regevbr"
+    "@regevbr",
+    "@FragMenthor"
 
 [Support forum](https://community.home-assistant.io/t/custom-component-cover-time-based/187654/3)
