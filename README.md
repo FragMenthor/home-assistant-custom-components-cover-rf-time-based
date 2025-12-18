@@ -1,6 +1,8 @@
 **NEW VERSION NOTE:**
 
-Adapted by me for compatibility with Home Assistant 2025.10+. Added modern config-flow.
+Adapted by me (@FragMenthor) for compatibility with Home Assistant 2025.10+. Added modern config-flow.
+
+
 
 **ORIGINAL NOTE**
 
