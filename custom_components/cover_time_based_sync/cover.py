@@ -91,7 +91,7 @@ class CoverTimeBasedSyncCover(RestoreEntity, CoverEntity):
         options: dict,
     ) -> None:
 
-                self.hass = hass
+        self.hass = hass
         self._position = 0.0
         self._status = "stopped"  # "open", "close", "stopped"
 
