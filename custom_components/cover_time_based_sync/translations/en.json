@@ -27,6 +27,8 @@
         }
       },
       "init": {
+        "title": "Options for Cover Time Based Sync",
+        "description": "Adjust timmings, scripts and options.",
         "data": {
           "travelling_time_up": "Travel time up (s)",
           "travelling_time_down": "Travel time down (s)",
