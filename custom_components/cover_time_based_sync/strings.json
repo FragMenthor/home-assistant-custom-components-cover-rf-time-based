@@ -1,0 +1,14 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Cover Time Based Sync",
+        "description": "Configuração inicial da cobertura temporizada."
+      },
+      "init": {
+        "title": "Opções de Cover Time Based Sync",
+        "description": "Ajustar tempos e scripts desta cobertura."
+      }
+    }
+  }
+}
