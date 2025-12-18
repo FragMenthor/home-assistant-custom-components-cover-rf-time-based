@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 import voluptuous as vol
 
-from homeassistant import config_entries
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    OptionsFlow,
+)
 from homeassistant.helpers import selector
 
 from .const import (
@@ -30,7 +35,7 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
-    async def async_step_user(self, user_input=None):
+    async def async_step_user(self, user_input: dict[str, Any] | None = None):
         """Primeiro passo do fluxo (criação)."""
         if user_input is not None:
             return self.async_create_entry(
@@ -72,7 +77,7 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
 
     @staticmethod
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
-        """Retorna o OptionsFlowHandler para esta integração."""
+        """Devolve o options flow desta entrada."""
         return OptionsFlowHandler(config_entry)
 
 
@@ -82,8 +87,8 @@ class OptionsFlowHandler(OptionsFlow):
     def __init__(self, config_entry: ConfigEntry) -> None:
         self.config_entry = config_entry
 
-    async def async_step_init(self, user_input=None):
-        """Primeiro (e único) passo do options flow."""
+    async def async_step_init(self, user_input: dict[str, Any] | None = None):
+        """Passo único do fluxo de opções."""
         data = self.config_entry.data
         options = self.config_entry.options
 
