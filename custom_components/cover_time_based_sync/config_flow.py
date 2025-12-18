@@ -4,6 +4,7 @@ import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.helpers import selector
+from typing import Any
 
 from .const import (
     DOMAIN,
