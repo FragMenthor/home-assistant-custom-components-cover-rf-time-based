@@ -122,11 +122,24 @@ class CoverTimeBasedSyncCover(RestoreEntity, CoverEntity):
 
         aliases = options.get(CONF_ALIASES, config.get(CONF_ALIASES, ""))
         self._slug = None
-        if isinstance(aliases, str) and aliases.strip():
-            # usa o primeiro alias como base para o entity_id
-            self._slug = aliases.split(",")[0].strip().lower().replace(" ", "_")
+        if isinstance(aliases, str):
+            alias = aliases.split(",")[0].strip()
+            if alias:
+                # normalizar para entity_id seguro
+                slug = (
+                    alias.lower()
+                    .replace(" ", "_")
+                    .replace("-", "_")
+                    )
+                # filtrar caracteres inválidos
+                slug = "".join(c for c in slug if c.isalnum() or c == "_")
+                if slug:
+                    self._slug = slug
+
+        self._attr_unique_id = f"{DOMAIN}_{entry_id}"
         if self._slug:
             self._attr_entity_id = f"{COVER_DOMAIN}.{self._slug}"
+
     
     @property
     def supported_features(self) -> int:
