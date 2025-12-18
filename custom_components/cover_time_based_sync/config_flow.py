@@ -35,7 +35,9 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
-    async def async_step_user(self, user_input: dict[str, Any] | None = None):
+    async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ):
         """Primeiro passo do fluxo (criação)."""
         if user_input is not None:
             return self.async_create_entry(
@@ -76,7 +78,9 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
         )
 
     @staticmethod
-    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+    def async_get_options_flow(
+        config_entry: ConfigEntry,
+    ) -> OptionsFlow:
         """Devolve o options flow desta entrada."""
         return OptionsFlowHandler(config_entry)
 
@@ -85,9 +89,12 @@ class OptionsFlowHandler(OptionsFlow):
     """Gestão de opções para Cover Time Based Sync."""
 
     def __init__(self, config_entry: ConfigEntry) -> None:
-        self.config_entry = config_entry
+        """Inicializa o options flow."""
+        super().__init__(config_entry)
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None):
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ):
         """Passo único do fluxo de opções."""
         data = self.config_entry.data
         options = self.config_entry.options
@@ -113,19 +120,28 @@ class OptionsFlowHandler(OptionsFlow):
                 ): int,
                 vol.Optional(
                     CONF_OPEN_SCRIPT,
-                    default=options.get(CONF_OPEN_SCRIPT, data.get(CONF_OPEN_SCRIPT)),
+                    default=options.get(
+                        CONF_OPEN_SCRIPT,
+                        data.get(CONF_OPEN_SCRIPT),
+                    ),
                 ): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="script")
                 ),
                 vol.Optional(
                     CONF_CLOSE_SCRIPT,
-                    default=options.get(CONF_CLOSE_SCRIPT, data.get(CONF_CLOSE_SCRIPT)),
+                    default=options.get(
+                        CONF_CLOSE_SCRIPT,
+                        data.get(CONF_CLOSE_SCRIPT),
+                    ),
                 ): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="script")
                 ),
                 vol.Optional(
                     CONF_STOP_SCRIPT,
-                    default=options.get(CONF_STOP_SCRIPT, data.get(CONF_STOP_SCRIPT)),
+                    default=options.get(
+                        CONF_STOP_SCRIPT,
+                        data.get(CONF_STOP_SCRIPT),
+                    ),
                 ): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="script")
                 ),
