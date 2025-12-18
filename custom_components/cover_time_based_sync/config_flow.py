@@ -1,10 +1,12 @@
 """Config flow para Cover Time Based Sync."""
 
+from __future__ import annotations
+
 import voluptuous as vol
 
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigEntry, ConfigFlow, OptionsFlow
 from homeassistant.helpers import selector
-from typing import Any
 
 from .const import (
     DOMAIN,
@@ -23,13 +25,13 @@ from .const import (
 DEFAULT_TRAVEL_TIME = 25
 
 
-class CoverTimeBasedSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
+class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
     """Fluxo de configuração para Cover Time Based Sync."""
 
     VERSION = 1
 
     async def async_step_user(self, user_input=None):
-        """Primeiro passo do fluxo."""
+        """Primeiro passo do fluxo (criação)."""
         if user_input is not None:
             return self.async_create_entry(
                 title=user_input[CONF_NAME],
@@ -40,10 +42,12 @@ class CoverTimeBasedSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             {
                 vol.Required(CONF_NAME): str,
                 vol.Required(
-                    CONF_TRAVELLING_TIME_UP, default=DEFAULT_TRAVEL_TIME
+                    CONF_TRAVELLING_TIME_UP,
+                    default=DEFAULT_TRAVEL_TIME,
                 ): int,
                 vol.Required(
-                    CONF_TRAVELLING_TIME_DOWN, default=DEFAULT_TRAVEL_TIME
+                    CONF_TRAVELLING_TIME_DOWN,
+                    default=DEFAULT_TRAVEL_TIME,
                 ): int,
                 vol.Optional(CONF_OPEN_SCRIPT): selector.EntitySelector(
                     selector.EntitySelectorConfig(domain="script")
@@ -61,22 +65,27 @@ class CoverTimeBasedSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             }
         )
 
-        return self.async_show_form(step_id="user", data_schema=schema)
+        return self.async_show_form(
+            step_id="user",
+            data_schema=schema,
+        )
 
     @staticmethod
-    def async_get_options_flow(entry):
-        return OptionsFlowHandler(entry)
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        """Retorna o OptionsFlowHandler para esta integração."""
+        return OptionsFlowHandler(config_entry)
 
 
-class OptionsFlowHandler(config_entries.OptionsFlow):
+class OptionsFlowHandler(OptionsFlow):
     """Gestão de opções para Cover Time Based Sync."""
 
-    def __init__(self, entry):
-        self.entry = entry
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        self.config_entry = config_entry
 
     async def async_step_init(self, user_input=None):
-        data = self.entry.data
-        options = self.entry.options
+        """Primeiro (e único) passo do options flow."""
+        data = self.config_entry.data
+        options = self.config_entry.options
 
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
@@ -125,18 +134,28 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_ALWAYS_CONFIDENT,
                     default=options.get(
-                        CONF_ALWAYS_CONFIDENT, data.get(CONF_ALWAYS_CONFIDENT, False)
+                        CONF_ALWAYS_CONFIDENT,
+                        data.get(CONF_ALWAYS_CONFIDENT, False),
                     ),
                 ): bool,
                 vol.Optional(
                     CONF_SMART_STOP,
-                    default=options.get(CONF_SMART_STOP, data.get(CONF_SMART_STOP, True)),
+                    default=options.get(
+                        CONF_SMART_STOP,
+                        data.get(CONF_SMART_STOP, False),
+                    ),
                 ): bool,
                 vol.Optional(
                     CONF_ALIASES,
-                    default=options.get(CONF_ALIASES, data.get(CONF_ALIASES, "")),
+                    default=options.get(
+                        CONF_ALIASES,
+                        data.get(CONF_ALIASES, ""),
+                    ),
                 ): str,
             }
         )
 
-        return self.async_show_form(step_id="init", data_schema=schema)
+        return self.async_show_form(
+            step_id="init",
+            data_schema=schema,
+        )
