@@ -1,4 +1,4 @@
-"""Cover Time Based Sync - entidade cover compatível HA 2025.10+ com controlo temporal."""
+"""Cover Time Based Sync - entidade cover compatível HA 2025.10+ com temporização."""
 
 import logging
 from datetime import timedelta
@@ -20,15 +20,11 @@ from .const import (
     CONF_CLOSE_SCRIPT,
     CONF_STOP_SCRIPT,
 )
-
-from .travelcalculator import TravelCalculator, TravelStatus
+from .travelcalculator import TravelCalculator, TravelStatus  # [file:130]
 
 _LOGGER = logging.getLogger(__name__)
 
-# intervalo de atualização do movimento (segundos)
-UPDATE_INTERVAL = 0.5
-
-# intervalo em que queremos comportamento “inteligente”
+UPDATE_INTERVAL = 0.5  # segundos para atualizar posição
 MIN_SMART_POS = 20
 MAX_SMART_POS = 80
 
@@ -49,19 +45,16 @@ async def async_setup_entry(
         config=data,
         options=entry.options,
     )
-
     async_add_entities([entity])
 
 
 async def async_setup_platform(hass, config, async_add_entities, discovery_info=None):
-    """Configuração legacy via YAML (mantida para compatibilidade simples)."""
+    """Configuração legacy via YAML (mantida para compatibilidade)."""
     devices_conf = config.get("devices", {})
 
     entities = []
     for device_key, device_config in devices_conf.items():
         name = device_config.get("name", device_key)
-        # Para YAML não temos scripts, nem travel time por options;
-        # valores default razoáveis.
         yaml_conf = {
             CONF_TRAVELLING_TIME_UP: device_config.get("travelling_time_up", 25),
             CONF_TRAVELLING_TIME_DOWN: device_config.get("travelling_time_down", 25),
@@ -96,7 +89,7 @@ class CoverTimeBasedSyncCover(RestoreEntity, CoverEntity):
         options: dict,
     ) -> None:
         self.hass = hass
-        self._position = 0
+        self._position = 0.0
         self._status = "stopped"  # "open", "close", "stopped"
 
         self._attr_name = name
@@ -104,23 +97,23 @@ class CoverTimeBasedSyncCover(RestoreEntity, CoverEntity):
         self._attr_is_closed = True
         self._attr_is_opening = False
         self._attr_is_closing = False
-        self._attr_current_cover_position = self._position
+        self._attr_current_cover_position = int(self._position)
 
-        # ler tempos do config/option
+        # tempos de viagem
         up = options.get(CONF_TRAVELLING_TIME_UP, config.get(CONF_TRAVELLING_TIME_UP, 25))
         down = options.get(
             CONF_TRAVELLING_TIME_DOWN, config.get(CONF_TRAVELLING_TIME_DOWN, 25)
         )
-        self._travel = TravelCalculator(travel_time_down=down, travel_time_up=up)
+        self._travel = TravelCalculator(travel_time_down=down, travel_time_up=up)  # [file:130]
 
         # scripts
         self._open_script = options.get(CONF_OPEN_SCRIPT, config.get(CONF_OPEN_SCRIPT))
         self._close_script = options.get(CONF_CLOSE_SCRIPT, config.get(CONF_CLOSE_SCRIPT))
         self._stop_script = options.get(CONF_STOP_SCRIPT, config.get(CONF_STOP_SCRIPT))
 
-        # listener periódico
+        # controlo de atualização
         self._unsub_update = None
-        self._smart_target = None  # guarda target para posições 20–80
+        self._target_position: int | None = None
 
     @property
     def supported_features(self) -> int:
@@ -136,7 +129,7 @@ class CoverTimeBasedSyncCover(RestoreEntity, CoverEntity):
         return self._attr_current_cover_position
 
     def _update_state_attributes(self) -> None:
-        """Atualiza atributos internos para HA."""
+        """Atualiza atributos internos para HA mantendo evolução contínua."""
         self._attr_is_closed = self._position <= 0
         self._attr_is_opening = self._status == "open"
         self._attr_is_closing = self._status == "close"
@@ -146,78 +139,72 @@ class CoverTimeBasedSyncCover(RestoreEntity, CoverEntity):
         """Chama um script se definido."""
         if not script_entity_id:
             return
-        _LOGGER.debug("A chamar script %s", script_entity_id)
-        await self.hass.services.async_call(
-            "script",
-            script_entity_id.split(".", 1)[1],
-            blocking=False,
-        )
+        domain, _, script_name = script_entity_id.partition(".")
+        if domain != "script" or not script_name:
+            _LOGGER.warning("ID de script inválido: %s", script_entity_id)
+            return
+        await self.hass.services.async_call("script", script_name, blocking=False)
+
+    # ------------ interface padrão cover ------------
 
     async def async_open_cover(self, **kwargs) -> None:
-        """Abre totalmente (100%)."""
-        await self.async_set_cover_position(position=100)
+        """Abrir completamente: comportamento base (até 100%)."""
+        await self._async_start_move(target=100)
 
     async def async_close_cover(self, **kwargs) -> None:
-        """Fecha totalmente (0%)."""
-        await self.async_set_cover_position(position=0)
+        """Fechar completamente: comportamento base (até 0%)."""
+        await self._async_start_move(target=0)
 
     async def async_stop_cover(self, **kwargs) -> None:
-        """Para o movimento atual e chama o script de stop."""
-        _LOGGER.debug("Parar movimento pedido manualmente")
+        """Parar movimento atual e chamar script de stop."""
+        _LOGGER.debug("Stop manual solicitado")
         self._travel.stop()
+        self._target_position = None
         if self._unsub_update:
             self._unsub_update()
             self._unsub_update = None
-        self._status = "stopped"
-        self._smart_target = None
         await self._async_call_script(self._stop_script)
         self._position = self._travel.current_position()
+        self._status = "stopped"
         self._update_state_attributes()
         self.async_write_ha_state()
 
     async def async_set_cover_position(self, **kwargs) -> None:
-        """Define a posição, com controlo temporal entre 20% e 80%."""
-        target = kwargs.get("position")
-        if target is None:
+        """Definir posição; só gera stop automático entre 20% e 80%."""
+        pos = kwargs.get("position")
+        if pos is None:
             return
+        target = max(0, min(100, int(pos)))
+        await self._async_start_move(target=target)
 
-        target = max(0, min(100, int(target)))
-        _LOGGER.debug("Pedido de posição: %s%%", target)
+    # ------------ lógica de movimento temporizado ------------
 
+    async def _async_start_move(self, target: int) -> None:
+        """Inicia movimento para um target, mantendo funcionamento base."""
         current = self._travel.current_position()
         self._position = current
 
-        # fora da zona “inteligente”: atualizar direto
-        if target < MIN_SMART_POS or target > MAX_SMART_POS:
-            _LOGGER.debug(
-                "Target fora de [%s,%s]%%, ajuste direto de estado.",
-                MIN_SMART_POS,
-                MAX_SMART_POS,
-            )
-            self._position = target
-            self._status = "stopped"
-            self._travel._position = target  # manter coerência interna
-            self._travel._direction = TravelStatus.STOPPED
-            self._travel._start_time = None
-            self._update_state_attributes()
-            self.async_write_ha_state()
+        if target == current:
+            _LOGGER.debug("Target igual à posição atual (%s%%), nada a fazer", target)
             return
 
-        # dentro de 20–80%: usar TravelCalculator e scripts
         direction = (
             TravelStatus.OPENING if target > current else TravelStatus.CLOSING
-        )
-        self._status = "open" if direction == TravelStatus.OPENING else "close"
-        self._smart_target = target
+        )  # [file:130]
 
-        # chama script de movimento adequado
+        self._status = "open" if direction == TravelStatus.OPENING else "close"
+
+        # comportamento base: chamar script de open/close e deixar o tempo correr
         if direction == TravelStatus.OPENING:
             await self._async_call_script(self._open_script)
         else:
             await self._async_call_script(self._close_script)
 
-        self._travel.start_moving(direction, target)
+        # arranca TravelCalculator para este target
+        self._target_position = target
+        self._travel.start_moving(direction, target)  # [file:130]
         self._schedule_updates()
+
         self._update_state_attributes()
         self.async_write_ha_state()
 
@@ -225,46 +212,67 @@ class CoverTimeBasedSyncCover(RestoreEntity, CoverEntity):
         """Agendar atualização periódica da posição."""
         if self._unsub_update is not None:
             return
-
         self._unsub_update = async_track_time_interval(
-            self.hass, self._async_handle_travel_update, timedelta(seconds=UPDATE_INTERVAL)
+            self.hass,
+            self._async_handle_travel_update,
+            timedelta(seconds=UPDATE_INTERVAL),
         )
 
     async def _async_handle_travel_update(self, now) -> None:
-        """Callback periódico para atualizar posição e parar no target."""
-        pos = self._travel.current_position()
+        """Atualiza posição continuamente e decide se deve enviar stop automático."""
+        pos = self._travel.current_position()  # calcula posição em função do tempo [file:130]
         self._position = pos
         self._update_state_attributes()
         self.async_write_ha_state()
 
-        # se TravelCalculator parou, chegámos (aprox.) ao target
+        # Verificar se o TravelCalculator parou (chegou ao target ou aos limites)
         if self._travel._direction == TravelStatus.STOPPED:
-            _LOGGER.debug("TravelCalculator parou em %s%%", pos)
+            # cancela callback periódico
             if self._unsub_update:
                 self._unsub_update()
                 self._unsub_update = None
 
-            # só chamar stop automaticamente se estávamos num movimento “smart”
-            if self._smart_target is not None:
+            # lógica de stop automático apenas se:
+            # - há target definido, e
+            # - o target está entre 20% e 80%
+            if (
+                self._target_position is not None
+                and MIN_SMART_POS <= self._target_position <= MAX_SMART_POS
+            ):
+                _LOGGER.debug(
+                    "Target %s%% atingido (posição %.1f%%), a chamar script de stop",
+                    self._target_position,
+                    pos,
+                )
                 await self._async_call_script(self._stop_script)
-            self._smart_target = None
+            else:
+                _LOGGER.debug(
+                    "Movimento terminou em %.1f%% sem stop automático (target=%s)",
+                    pos,
+                    self._target_position,
+                )
+
+            self._target_position = None
             self._status = "stopped"
             self._update_state_attributes()
             self.async_write_ha_state()
 
+    # ------------ serviços internos da integração ------------
+
     async def async_set_known_position(self, **kwargs) -> None:
-        """Serviço interno: set_known_position (ajuste manual)."""
-        self._position = kwargs.get(ATTR_POSITION, self._position)
+        """Ajuste manual de posição (sem mexer em scripts)."""
+        val = kwargs.get(ATTR_POSITION, self._position)
+        self._position = max(0, min(100, float(val)))
         self._travel._position = self._position
         self._travel._direction = TravelStatus.STOPPED
         self._travel._start_time = None
         self._status = "stopped"
-        self._smart_target = None
+        self._target_position = None
         self._update_state_attributes()
         self.async_write_ha_state()
 
     async def async_set_known_action(self, **kwargs) -> None:
-        """Serviço interno: set_known_action (open/close/stop manual)."""
+        """Ação manual conhecida: open / close / stop."""
         action = kwargs.get(ATTR_ACTION)
         _LOGGER.debug("Ação conhecida recebida: %s", action)
 
@@ -275,4 +283,4 @@ class CoverTimeBasedSyncCover(RestoreEntity, CoverEntity):
         elif action == "stop":
             await self.async_stop_cover()
         else:
-            _LOGGER.warning("Ação desconhecida recebida: %s", action)
+            _LOGGER.warning("Ação desconhecida recebida
