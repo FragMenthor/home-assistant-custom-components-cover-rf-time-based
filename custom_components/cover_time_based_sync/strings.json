@@ -3,11 +3,13 @@
     "step": {
       "user": {
         "title": "Cover Time Based Sync",
-        "description": "Configuração inicial da cobertura temporizada."
+        "description": "Initial configuration of the time-based cover."
       },
-      "init": {
-        "title": "Opções de Cover Time Based Sync",
-        "description": "Ajustar tempos e scripts desta cobertura."
+      "options": {
+        "init": {
+          "title": "Cover Time Based Sync options",
+          "description": "Adjust timings and scripts for this cover."
+        }
       }
     }
   }
