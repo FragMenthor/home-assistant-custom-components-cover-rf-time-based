@@ -126,6 +126,10 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                     ),
                 ): bool,
                 vol.Optional(
+                    CONF_SMART_STOP,
+                    default=options.get(CONF_SMART_STOP, data.get(CONF_SMART_STOP, True)),
+                ): bool,
+                vol.Optional(
                     CONF_ALIASES,
                     default=options.get(CONF_ALIASES, data.get(CONF_ALIASES, "")),
                 ): str,
