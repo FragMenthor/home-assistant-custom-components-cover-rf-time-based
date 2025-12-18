@@ -53,6 +53,7 @@ class CoverTimeBasedSyncFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                     selector.EntitySelectorConfig(domain="script")
                 ),
                 vol.Optional(CONF_SEND_STOP_AT_ENDS, default=False): bool,
+                vol.Optional(CONF_SMART_STOP, default=False): bool,
                 vol.Optional(CONF_ALWAYS_CONFIDENT, default=False): bool,
                 vol.Optional(CONF_ALIASES, default=""): str,
             }
