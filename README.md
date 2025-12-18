@@ -4,7 +4,9 @@
 
 Adapted by me (@FragMenthor) for compatibility with Home Assistant 2025.10+. Added modern config-flow. a
 
-**ORIGINAL NOTE, adapted with new paths**
+---
+
+**ORIGINAL NOTE, adapted with new paths:**
 
 Since I moved the time-based functionality to an [ESPHome](https://esphome.io/components/cover/time_based.html) node, which works much better as it's being done in hardware, I'm archiving this repository and stop maintaining it. 
 
