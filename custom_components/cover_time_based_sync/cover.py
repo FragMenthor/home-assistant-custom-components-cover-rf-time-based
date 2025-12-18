@@ -90,6 +90,8 @@ class CoverTimeBasedSyncCover(RestoreEntity, CoverEntity):
         config: dict,
         options: dict,
     ) -> None:
+
+        _LOGGER.debug("CoverTimeBasedSyncCover init: name=%s entry_id=%s aliases=%s", name, entry_id, aliases)
         self.hass = hass
         self._position = 0.0
         self._status = "stopped"  # "open", "close", "stopped"
@@ -136,10 +138,11 @@ class CoverTimeBasedSyncCover(RestoreEntity, CoverEntity):
                 if slug:
                     self._slug = slug
 
+        _LOGGER.debug("CoverTimeBasedSyncCover slug gerado: %s", self._slug)
+
         self._attr_unique_id = f"{DOMAIN}_{entry_id}"
         if self._slug:
             self._attr_entity_id = f"{COVER_DOMAIN}.{self._slug}"
-
     
     @property
     def supported_features(self) -> int:
