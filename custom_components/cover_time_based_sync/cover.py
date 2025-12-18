@@ -19,6 +19,7 @@ from .const import (
     CONF_OPEN_SCRIPT,
     CONF_CLOSE_SCRIPT,
     CONF_STOP_SCRIPT,
+    CONF_SMART_STOP,
 )
 from .travelcalculator import TravelCalculator, TravelStatus  # [file:130]
 
@@ -99,6 +100,9 @@ class CoverTimeBasedSyncCover(RestoreEntity, CoverEntity):
         self._attr_is_closing = False
         self._attr_current_cover_position = int(self._position)
 
+        self._smart_stop_enabled = options.get(
+            CONF_SMART_STOP, config.get(CONF_SMART_STOP, True)
+        )
         # tempos de viagem
         up = options.get(CONF_TRAVELLING_TIME_UP, config.get(CONF_TRAVELLING_TIME_UP, 25))
         down = options.get(
@@ -236,7 +240,8 @@ class CoverTimeBasedSyncCover(RestoreEntity, CoverEntity):
             # - há target definido, e
             # - o target está entre 20% e 80%
             if (
-                self._target_position is not None
+                self._smart_stop_enabled
+                and self._target_position is not None
                 and MIN_SMART_POS <= self._target_position <= MAX_SMART_POS
             ):
                 _LOGGER.debug(
