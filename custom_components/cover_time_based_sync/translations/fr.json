@@ -1,0 +1,85 @@
+
+{
+  "title": "Synchronisation de volet basée sur le temps",
+
+  "config": {
+    "step": {
+      "user": {
+        "title": "Synchronisation de volet basée sur le temps",
+        "description": "Configuration initiale d’un volet basé sur le temps.",
+        "data": {
+          "name": "Nom",
+          "travelling_time_up": "Temps de montée (s)",
+          "travelling_time_down": "Temps de descente (s)",
+          "open_script_entity_id": "Script d’ouverture",
+          "close_script_entity_id": "Script de fermeture",
+          "stop_script_entity_id": "Script d’arrêt",
+          "send_stop_at_ends": "Envoyer ‘stop’ à l’ouverture/fermeture complète",
+          "always_confident": "Position toujours fiable",
+          "smart_stop_midrange": "Arrêt automatique entre 20–80 %",
+          "aliases": "Alias"
+        },
+        "data_description": {
+          "travelling_time_up": "Secondes nécessaires pour l’ouverture complète.",
+          "travelling_time_down": "Secondes nécessaires pour la fermeture complète.",
+          "open_script_entity_id": "Script qui démarre l’ouverture.",
+          "close_script_entity_id": "Script qui démarre la fermeture.",
+          "stop_script_entity_id": "Script qui arrête le mouvement.",
+          "send_stop_at_ends": "Envoie un arrêt à 0 % ou 100 %.",
+          "always_confident": "Supposer que la position est toujours correcte, même sans retour.",
+          "smart_stop_midrange": "Envoie un arrêt pour des cibles entre 20–80 %. ",
+          "aliases": "Noms alternatifs facultatifs (séparés par des virgules)."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigurer la synchronisation de volet",
+        "description": "Mettre à jour la configuration requise (temporisations/scripts).",
+        "data": {
+          "travelling_time_up": "Temps de montée (s)",
+          "travelling_time_down": "Temps de descente (s)",
+          "open_script_entity_id": "Script d’ouverture",
+          "close_script_entity_id": "Script de fermeture",
+          "stop_script_entity_id": "Script d’arrêt",
+          "send_stop_at_ends": "Envoyer ‘stop’ à l’ouverture/fermeture complète",
+          "always_confident": "Position toujours fiable",
+          "smart_stop_midrange": "Arrêt automatique entre 20–80 %",
+          "aliases": "Alias"
+        }
+      }
+    },
+    "abort": {
+      "reconfigure_successful": "Configuration mise à jour avec succès."
+    }
+  },
+
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options — Synchronisation de volet",
+        "description": "Ajuster les temporisations, les scripts et le comportement.",
+        "data": {
+          "travelling_time_up": "Temps de montée (s)",
+          "travelling_time_down": "Temps de descente (s)",
+          "open_script_entity_id": "Script d’ouverture",
+          "close_script_entity_id": "Script de fermeture",
+          "stop_script_entity_id": "Script d’arrêt",
+          "send_stop_at_ends": "Envoyer ‘stop’ à l’ouverture/fermeture complète",
+          "always_confident": "Position toujours fiable",
+          "smart_stop_midrange": "Arrêt automatique entre 20–80 %",
+          "aliases": "Alias"
+        },
+        "data_description": {
+          "travelling_time_up": "Secondes nécessaires pour l’ouverture complète.",
+          "travelling_time_down": "Secondes nécessaires pour la fermeture complète.",
+          "open_script_entity_id": "Script qui démarre l’ouverture.",
+          "close_script_entity_id": "Script qui démarre la fermeture.",
+          "stop_script_entity_id": "Script qui arrête le mouvement.",
+          "send_stop_at_ends": "Envoie un arrêt à 0 % ou 100 %.",
+          "always_confident": "Supposer que la position est toujours correcte, même sans retour.",
+          "smart_stop_midrange": "Envoie un arrêt pour des cibles entre 20–80 %. ",
+          "aliases": "Noms alternatifs facultatifs (séparés par des virgules)."
+        }
+      }
+    }
+  }
+}
