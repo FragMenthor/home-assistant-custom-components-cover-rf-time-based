@@ -245,8 +245,17 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             self._moving_task.cancel()
             self._moving_task = None
 
+        # --- NOVO: se o alvo já é a posição atual, não chamar stop
+        # indiscriminadamente. Respeitar as opções.
         if target == self._position:
-            await self._start_stop()
+            if target in (0, 100):
+                # Extremo: só chama stop se send_stop_at_ends estiver ativo
+                if self._send_stop_at_ends:
+                    await self._start_stop()
+            else:
+                # Intermédio: só chama stop se smart_stop_midrange estiver ativo
+                if self._smart_stop_midrange:
+                    await self._start_stop()
             return
 
         direction = "up" if target > self._position else "down"
