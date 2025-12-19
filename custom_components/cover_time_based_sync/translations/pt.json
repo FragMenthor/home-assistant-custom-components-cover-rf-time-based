@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Cover Time Based Sync",
-        "description": "Configuração inicial da cobertura temporizada.",
+        "description": "Configuração inicial da cobertura baseada em tempo.",
         "data": {
           "name": "Nome",
           "travelling_time_up": "Tempo de subida (s)",
@@ -11,47 +11,49 @@
           "open_script_entity_id": "Script de abrir",
           "close_script_entity_id": "Script de fechar",
           "stop_script_entity_id": "Script de parar",
-          "send_stop_at_ends": "Enviar stop no fim do curso",
+          "send_stop_at_ends": "Enviar stop em totalmente aberto/fechado",
           "always_confident": "Posição sempre confiável",
           "smart_stop_midrange": "Parar automaticamente entre 20% e 80%"
         },
         "data_description": {
-          "travelling_time_up": "Número de segundos que o portão demora a abrir completamente (0 → 100%).",
-          "travelling_time_down": "Número de segundos que o portão demora a fechar completamente (100 → 0%).",
+          "travelling_time_up": "Número de segundos que o portão demora a abrir completamente.",
+          "travelling_time_down": "Número de segundos que o portão demora a fechar completamente.",
           "open_script_entity_id": "Script que inicia a abertura do portão.",
           "close_script_entity_id": "Script que inicia o fecho do portão.",
-          "stop_script_entity_id": "Script que envia o comando de paragem do portão.",
-          "send_stop_at_ends": "Se ativo, envia também o comando de stop quando chega a 0% ou 100%.",
-          "always_confident": "Se ativo, assume que a posição calculada está sempre correta, mesmo sem sensores.",
-          "smart_stop_midrange": "Se ativo, ao definir uma posição entre 20% e 80% envia automaticamente o comando de stop quando essa posição é atingida."
+          "stop_script_entity_id": "Script que pára o movimento do portão.",
+          "send_stop_at_ends": "Envia um comando de stop quando atinge 0% ou 100%.",
+          "always_confident": "Assume que a posição está sempre correta, mesmo sem feedback.",
+          "smart_stop_midrange": "Quando ativo, envia o comando de stop ao atingir um alvo entre 20–80%."
         }
-      },
-      "options": {
-        "init": {
-          "title": "Opções de Cover Time Based Sync",
-          "description": "Ajustar tempos e scripts desta cobertura.",
-          "data": {
-            "travelling_time_up": "Tempo de subida (s)",
-            "travelling_time_down": "Tempo de descida (s)",
-            "open_script_entity_id": "Script de abrir",
-            "close_script_entity_id": "Script de fechar",
-            "stop_script_entity_id": "Script de parar",
-            "send_stop_at_ends": "Enviar stop no fim do curso",
-            "always_confident": "Posição sempre confiável",
-            "aliases": "Aliases (nomes alternativos)",
-            "smart_stop_midrange": "Parar automaticamente entre 20% e 80%"
-          },
-          "data_description": {
-            "travelling_time_up": "Número de segundos até o portão abrir completamente.",
-            "travelling_time_down": "Número de segundos até o portão fechar completamente.",
-            "open_script_entity_id": "Script que será chamado para iniciar a abertura.",
-            "close_script_entity_id": "Script que será chamado para iniciar o fecho.",
-            "stop_script_entity_id": "Script que será chamado para parar o movimento.",
-            "send_stop_at_ends": "Se ativo, o comando de stop é enviado quando o portão chega ao fim do curso (0% ou 100%).",
-            "always_confident": "Se ativo, a posição estimada pelo cálculo de tempo é sempre considerada correta.",
-            "aliases": "Lista de nomes alternativos para esta cobertura (separados por vírgulas, opcional).",
-            "smart_stop_midrange": "Se ativo, ao definir uma posição entre 20% e 80% a integração envia automaticamente o comando de stop quando essa posição é atingida."
-          }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opções do Cover Time Based Sync",
+        "description": "Ajustar tempos, scripts e comportamento desta cobertura.",
+        "data": {
+          "travelling_time_up": "Tempo de subida (s)",
+          "travelling_time_down": "Tempo de descida (s)",
+          "open_script_entity_id": "Script de abrir",
+          "close_script_entity_id": "Script de fechar",
+          "stop_script_entity_id": "Script de parar",
+          "send_stop_at_ends": "Enviar stop em totalmente aberto/fechado",
+          "always_confident": "Posição sempre confiável",
+          "aliases": "Aliases (nomes alternativos)",
+          "smart_stop_midrange": "Parar automaticamente entre 20% e 80%"
+        },
+        "data_description": {
+          "travelling_time_up": "Número de segundos que o portão demora a abrir completamente.",
+          "travelling_time_down": "Número de segundos que o portão demora a fechar completamente.",
+          "open_script_entity_id": "Script que será chamado para iniciar a abertura.",
+          "close_script_entity_id": "Script que será chamado para iniciar o fecho.",
+          "stop_script_entity_id": "Script que será chamado para parar o movimento.",
+          "send_stop_at_ends": "Envia um comando de stop quando o portão chega a 0% ou 100%.",
+          "always_confident": "A posição estimada pelo cálculo de tempo é sempre considerada correta.",
+          "aliases": "Lista de nomes alternativos para esta cobertura (separados por vírgulas, opcional).",
+          "smart_stop_midrange": "Quando ativo, envia automaticamente o comando de stop ao atingir um alvo entre 20–80%."
         }
       }
     }
