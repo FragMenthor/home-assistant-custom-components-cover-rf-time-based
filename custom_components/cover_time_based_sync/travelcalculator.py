@@ -1,4 +1,3 @@
-
 """TravelCalculator: cálculo preditivo de posição (0–100) para cover baseada em tempo.
 
 Baseado no algoritmo do XKNX (travelcalculator) e em forks time-based cover;
