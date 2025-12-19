@@ -4,11 +4,9 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Any, Callable, Optional
+from typing import Any, Optional
 
-import voluptuous as vol
-
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.config_entries import ConfigEntry
@@ -18,6 +16,7 @@ from homeassistant.components.cover import (
     CoverEntity,
     CoverEntityFeature,
     ATTR_POSITION,
+    ATTR_CURRENT_POSITION,
 )
 
 from .const import (
@@ -37,8 +36,8 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_TRAVEL_TIME = 25  # seconds
-MID_RANGE_LOW = 20  # percent
-MID_RANGE_HIGH = 80  # percent
+MID_RANGE_LOW = 20        # percent
+MID_RANGE_HIGH = 80       # percent
 
 
 # --------- Setup via Config Entry (plataforma cover) ----------
@@ -58,7 +57,7 @@ async def async_setup_entry(
 
     # Listener para refletir alterações em entry.data / entry.options
     async def _async_update_listener(updated_entry: ConfigEntry) -> None:
-        ent = hass.data[DOMAIN][updated_entry.entry_id]["entity"]
+        ent: TimeBasedSyncCover = hass.data[DOMAIN][updated_entry.entry_id]["entity"]
         ent.apply_entry(updated_entry)
         ent.async_write_ha_state()
         _LOGGER.debug("Entry %s updated; entity refreshed", updated_entry.entry_id)
@@ -80,7 +79,7 @@ async def async_setup_platform(
         (),
         {"data": config, "options": {}, "entry_id": "yaml"},
     )()
-    entity = TimeBasedSyncCover(hass, entry_like)
+    entity = TimeBasedSyncCover(hass, entry_like)  # type: ignore[arg-type]
     async_add_entities_cb([entity], update_before_add=False)
 
 
@@ -157,7 +156,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         """Restaurar último estado."""
         await super().async_added_to_hass()
         last_state = await self.async_get_last_state()
-        if last_state and (pos := last_state.attributes.get("current_position")) is not None:
+        if last_state and (pos := last_state.attributes.get(ATTR_CURRENT_POSITION)) is not None:
             try:
                 self._position = int(pos)
                 _LOGGER.debug("Restored position to %s%%", self._position)
@@ -305,7 +304,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             "send_stop_at_ends": self._send_stop_at_ends,
             "always_confident": self._always_confident,
             "smart_stop_midrange": self._smart_stop_midrange,
-            "current_position": self._position,
+            ATTR_CURRENT_POSITION: self._position,
         }
         if self._open_script_id:
             attrs["open_script_entity_id"] = self._open_script_id
