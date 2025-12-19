@@ -1,9 +1,11 @@
-"""TravelCalculator: cálculo preditivo de posição (0–100) para cover baseada em tempo.
-
-Baseado no algoritmo do XKNX (travelcalculator) e em forks time-based cover;
-revisto para usar time.monotonic() e tipagem explícita.
+# custom_components/cover_time_based_sync/travelcalculator.py
 """
+TravelCalculator: cálculo preditivo de posição (0–100) para cover baseada em tempo.
 
+- Baseado no conceito do XKNX (travelcalculator) e forks de covers time-based;
+- Usa time.monotonic() para robustez a ajustes de relógio;
+- Não tem side-effects no método current_position() — leitura pura do estado calculado.
+"""
 from __future__ import annotations
 
 from enum import Enum
@@ -20,8 +22,8 @@ class PositionType(Enum):
 
 class TravelStatus(Enum):
     """Estado de deslocação."""
-    DIRECTION_UP = 1      # a aumentar posição (→ 100)
-    DIRECTION_DOWN = 2    # a diminuir posição (→ 0)
+    DIRECTION_UP = 1   # a aumentar posição (→ 100)
+    DIRECTION_DOWN = 2 # a diminuir posição (→ 0)
     STOPPED = 3
 
 
@@ -33,27 +35,23 @@ class TravelCalculator:
     """Calcula a posição corrente de uma cover com base nos tempos de viagem."""
 
     # 0 = fechado; 100 = totalmente aberto
-    POSITION_CLOSED = 0
-    POSITION_OPEN = 100
+    POSITION_CLOSED = 0.0
+    POSITION_OPEN = 100.0
 
     def __init__(self, travel_time_down: float, travel_time_up: float) -> None:
         """travel_time_* em segundos."""
         self.position_type: PositionType = PositionType.UNKNOWN
         self.last_known_position: float = float(self.POSITION_CLOSED)
-
         self.travel_time_down: float = float(travel_time_down)
         self.travel_time_up: float = float(travel_time_up)
-
         self.travel_to_position: float = float(self.POSITION_CLOSED)
         self.travel_started_time: float = 0.0
         self.travel_direction: TravelStatus = TravelStatus.STOPPED
         self.start_position: float = float(self.POSITION_CLOSED)
-
         # Quando uma fonte externa define explicitamente a posição
         self.time_set_from_outside: Optional[float] = None
 
     # ---------- Controlo de estado ----------
-
     def set_position(self, position: float) -> None:
         """Define posição conhecida (confirma)."""
         pos = _clamp(position, self.POSITION_CLOSED, self.POSITION_OPEN)
@@ -93,9 +91,8 @@ class TravelCalculator:
         )
 
     # ---------- Cálculo de posição ----------
-
     def current_position(self) -> float:
-        """Devolve posição atual estimada (0–100). Não tem *side effects*."""
+        """Devolve posição atual estimada (0–100). Não tem side-effects."""
         if self.travel_direction is TravelStatus.STOPPED:
             return _clamp(self.last_known_position, self.POSITION_CLOSED, self.POSITION_OPEN)
 
@@ -106,6 +103,7 @@ class TravelCalculator:
         if self.travel_direction is TravelStatus.DIRECTION_UP:
             # subir → posição aumenta até target (máx. 100)
             duration = max(self.travel_time_up, 0.000001)
+            # delta de percentagem em função do tempo transcorrido: 100%/duration * elapsed
             delta = (elapsed / duration) * 100.0
             pos = start + delta
             if pos >= target:
@@ -121,7 +119,6 @@ class TravelCalculator:
         return _clamp(pos, self.POSITION_CLOSED, self.POSITION_OPEN)
 
     # ---------- Utilitários ----------
-
     @staticmethod
     def current_time() -> float:
         """Tempo monotónico (segundos)."""
@@ -132,4 +129,3 @@ class TravelCalculator:
         if self.travel_direction is TravelStatus.STOPPED:
             return 0.0
         return max(0.0, self.current_time() - self.travel_started_time)
-``
