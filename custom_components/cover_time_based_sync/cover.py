@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import time
 from typing import Any, Optional
 
 from homeassistant.core import HomeAssistant
@@ -241,19 +242,18 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         await self._start_stop()
         self.async_write_ha_state()
 
-
     async def _move_to_target(self, target: int) -> None:
-        """Move proporcionalmente até a posição alvo (0-100) com feedback contínuo."""
+        """Move proporcionalmente até a posição alvo (0-100) sem usar nonlocal."""
         # Cancelar movimento anterior
         if self._moving_task:
             self._moving_task.cancel()
             self._moving_task = None
-    
+
         # Sem diferença => apenas garantir stop
         if target == self._position:
             await self._start_stop()
             return
-    
+
         # Determinar direção e acionar script
         direction = "up" if target > self._position else "down"
         self._moving_direction = direction
@@ -261,70 +261,53 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             await self._start_open()
         else:
             await self._start_close()
-    
-        # Escreve estado inicial do movimento (abre/fecha a UI)
         self.async_write_ha_state()
-    
+
         total_seconds = self._movement_seconds(self._position, target)
         if total_seconds <= 0:
             await self._start_stop()
             self._moving_direction = None
             return
-    
+
         # smart_stop_midrange: enviar stop se alvo estiver no intervalo 20-80%
         should_midrange_stop = (
-            self._smart_stop_midrange and MID_RANGE_LOW <= target <= MID_RANGE_HIGH
+            self._smart_stop_midrange and 20 <= target <= 80
         )
-    
-        # Configura frequência de atualização de UI (ticks)
-        TICK = 0.5  # segundos por tick; ajusta para 0.25 se quiseres mais fluidez
+
         start_pos = self._position
-        delta = target - start_pos
-        elapsed = 0.0
-    
+        end_pos = target
+        start_time = time.monotonic()
+
         async def _run_move() -> None:
             try:
-                # Loop com pequenos passos temporais
-                while elapsed < total_seconds:
-                    await asyncio.sleep(TICK)
-                    # Atualiza tempo decorrido (protege contra derrapagens)
-                    nonlocal elapsed
-                    elapsed = min(total_seconds, elapsed + TICK)
-    
-                    # Fração de progresso e nova posição
-                    frac = elapsed / total_seconds if total_seconds > 0 else 1.0
-                    new_pos_float = start_pos + delta * frac
-                    # Arredonda para int, garante 0..100 e evita retrocessos por arredondamento
-                    new_pos = max(0, min(100, int(round(new_pos_float))))
-                    if new_pos != self._position:
-                        self._position = new_pos
-                        self.async_write_ha_state()  # feedback contínuo
-    
-                    # Se pediste “midrange stop” e já atingimos o alvo, parar aqui
-                    if should_midrange_stop and self._position == target:
-                        await self._start_stop()
-                        break
-    
-                # Finalização: garantir que terminámos no alvo
-                self._position = target
-                self.async_write_ha_state()
-    
+                # estratégia simples: só atualiza no fim; se quiseres updates “em progresso”,
+                # descomenta o loop abaixo com pequenos sleeps.
+                #
+                # while True:
+                #     elapsed = time.monotonic() - start_time
+                #     if elapsed >= total_seconds:
+                #         break
+                #     await asyncio.sleep(0.1)
+                #
+                # No fim do período, fixa na posição alvo:
+                await asyncio.sleep(total_seconds)
+                self._position = end_pos
+
                 # Stop automático ao atingir extremos
                 if self._send_stop_at_ends and (self._position in (0, 100)):
                     await self._start_stop()
                 elif should_midrange_stop:
-                    # Se não parou no loop por arredondamento, parar no fim
+                    # Enviar stop ao atingir alvo intermediário
                     await self._start_stop()
-    
+
             except asyncio.CancelledError:
-                # Cancelado por novo comando; não alterar posição
-                _LOGGER.debug("Movement to %s%% cancelled", target)
+                # Cancelado por novo comando
+                pass
             finally:
                 self._moving_direction = None
                 self.async_write_ha_state()
-    
-        self._moving_task = asyncio.create_task(_run_move())
 
+        self._moving_task = asyncio.create_task(_run_move())
 
     # --------- estado e atributos ---------
     @property
