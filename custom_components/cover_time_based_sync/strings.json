@@ -1,80 +1,77 @@
+
 {
-  "title": "Cover Time Based Sync",
   "config": {
     "step": {
       "user": {
         "title": "Cover Time Based Sync",
-        "description": "Configuração inicial da cover baseada em tempo.",
+        "description": "Initial configuration for time-based cover.",
         "data": {
-          "name": "Nome",
-          "travelling_time_up": "Tempo de subida (s)",
-          "travelling_time_down": "Tempo de descida (s)",
-          "open_script_entity_id": "Script de abrir",
-          "close_script_entity_id": "Script de fechar",
-          "stop_script_entity_id": "Script de parar",
-          "send_stop_at_ends": "Enviar 'stop' ao atingir 0%/100%",
-          "always_confident": "Assumir posição sempre correta",
-          "smart_stop_midrange": "Parar automaticamente entre 20–80%",
+          "name": "Name",
+          "travelling_time_up": "Travel time up (s)",
+          "travelling_time_down": "Travel time down (s)",
+          "open_script_entity_id": "Open script",
+          "close_script_entity_id": "Close script",
+          "stop_script_entity_id": "Stop script",
+          "send_stop_at_ends": "Send 'stop' at 0% / 100%",
+          "always_confident": "Assume position is always correct",
+          "smart_stop_midrange": "Auto stop between 20–80%",
           "aliases": "Aliases"
         },
         "data_description": {
-          "travelling_time_up": "Segundos para abrir totalmente.",
-          "travelling_time_down": "Segundos para fechar totalmente.",
-          "open_script_entity_id": "Script que inicia a abertura.",
-          "close_script_entity_id": "Script que inicia o fecho.",
-          "stop_script_entity_id": "Script que para o movimento.",
-          "send_stop_at_ends": "Envia 'stop' ao atingir os extremos.",
-          "always_confident": "Mantém confiança na posição sem feedback.",
-          "smart_stop_midrange": "Envia 'stop' ao atingir alvos entre 20–80%.",
-          "aliases": "Nomes alternativos (separados por vírgulas)."
+          "travelling_time_up": "Seconds to fully open.",
+          "travelling_time_down": "Seconds to fully close.",
+          "open_script_entity_id": "Script that triggers opening.",
+          "close_script_entity_id": "Script that triggers closing.",
+          "stop_script_entity_id": "Script that stops motion.",
+          "send_stop_at_ends": "Sends 'stop' when reaching the ends.",
+          "always_confident": "Keeps confidence in position without feedback.",
+          "smart_stop_midrange": "Sends 'stop' when reaching mid targets.",
+          "aliases": "Comma-separated alternative names."
         }
       },
       "reconfigure": {
-        "title": "Reconfigurar Cover Time Based Sync",
-        "description": "Atualiza dados obrigatórios (tempos e scripts).",
+        "title": "Reconfigure Cover Time Based Sync",
+        "description": "Update required fields (times and scripts).",
         "data": {
-          "travelling_time_up": "Tempo de subida (s)",
-          "travelling_time_down": "Tempo de descida (s)",
-          "open_script_entity_id": "Script de abrir",
-          "close_script_entity_id": "Script de fechar",
-          "stop_script_entity_id": "Script de parar",
-          "send_stop_at_ends": "Enviar 'stop' ao atingir 0%/100%",
-          "always_confident": "Assumir posição sempre correta",
-          "smart_stop_midrange": "Parar automaticamente entre 20–80%",
+          "travelling_time_up": "Travel time up (s)",
+          "travelling_time_down": "Travel time down (s)",
+          "open_script_entity_id": "Open script",
+          "close_script_entity_id": "Close script",
+          "stop_script_entity_id": "Stop script",
+          "send_stop_at_ends": "Send 'stop' at 0% / 100%",
+          "always_confident": "Assume position is always correct",
+          "smart_stop_midrange": "Auto stop between 20–80%",
           "aliases": "Aliases"
         }
       }
-    },
-    "abort": {
-      "reconfigure_successful": "Configuração atualizada com sucesso."
     }
   },
   "options": {
     "step": {
       "init": {
-        "title": "Opções — Cover Time Based Sync",
-        "description": "Ajusta tempos, scripts e comportamento.",
+        "title": "Options — Cover Time Based Sync",
+        "description": "Adjust times, scripts and behavior.",
         "data": {
-          "travelling_time_up": "Tempo de subida (s)",
-          "travelling_time_down": "Tempo de descida (s)",
-          "open_script_entity_id": "Script de abrir",
-          "close_script_entity_id": "Script de fechar",
-          "stop_script_entity_id": "Script de parar",
-          "send_stop_at_ends": "Enviar 'stop' ao atingir 0%/100%",
-          "always_confident": "Assumir posição sempre correta",
-          "smart_stop_midrange": "Parar automaticamente entre 20–80%",
+          "travelling_time_up": "Travel time up (s)",
+          "travelling_time_down": "Travel time down (s)",
+          "open_script_entity_id": "Open script",
+          "close_script_entity_id": "Close script",
+          "stop_script_entity_id": "Stop script",
+          "send_stop_at_ends": "Send 'stop' at 0% / 100%",
+          "always_confident": "Assume position is always correct",
+          "smart_stop_midrange": "Auto stop between 20–80%",
           "aliases": "Aliases"
         },
         "data_description": {
-          "travelling_time_up": "Segundos para abrir totalmente.",
-          "travelling_time_down": "Segundos para fechar totalmente.",
-          "open_script_entity_id": "Script que inicia a abertura.",
-          "close_script_entity_id": "Script que inicia o fecho.",
-          "stop_script_entity_id": "Script que para o movimento.",
-          "send_stop_at_ends": "Envia 'stop' ao atingir os extremos.",
-          "always_confident": "Mantém confiança na posição sem feedback.",
-          "smart_stop_midrange": "Envia 'stop' ao atingir alvos entre 20–80%.",
-          "aliases": "Nomes alternativos (separados por vírgulas)."
+          "travelling_time_up": "Seconds to fully open.",
+          "travelling_time_down": "Seconds to fully close.",
+          "open_script_entity_id": "Script that triggers opening.",
+          "close_script_entity_id": "Script that triggers closing.",
+          "stop_script_entity_id": "Script that stops motion.",
+          "send_stop_at_ends": "Sends 'stop' when reaching the ends.",
+          "always_confident": "Keeps confidence in position without feedback.",
+          "smart_stop_midrange": "Sends 'stop' when reaching mid targets.",
+          "aliases": "Comma-separated alternative names."
         }
       }
     }
