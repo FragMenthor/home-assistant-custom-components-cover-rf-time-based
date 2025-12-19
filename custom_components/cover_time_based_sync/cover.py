@@ -1,35 +1,24 @@
 
 """Cover Time Based Sync — entidade Cover baseada em tempo, com scripts de abrir/fechar/parar e sincronização por cálculo temporal."""
-
 from __future__ import annotations
 
 import asyncio
 import logging
-import math
-from datetime import timedelta
 from typing import Any, Callable, Optional
 
 import voluptuous as vol
 
-from homeassistant.core import HomeAssistant, ServiceCall, callback
-from homeassistant.helpers import entity_platform
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.restore_state import RestoreEntity
-from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
 from homeassistant.components.cover import (
     CoverEntity,
     CoverEntityFeature,
-    ATTR_CURRENT_POSITION,
     ATTR_POSITION,
 )
-from homeassistant.const import (
-    CONF_NAME,
-    STATE_OPENING,
-    STATE_CLOSING,
-    STATE_CLOSED,
-    STATE_OPEN,
-)
-from homeassistant.helpers import script
 
 from .const import (
     DOMAIN,
@@ -48,40 +37,51 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_TRAVEL_TIME = 25  # seconds
-MID_RANGE_LOW = 20       # percent
-MID_RANGE_HIGH = 80      # percent
+MID_RANGE_LOW = 20  # percent
+MID_RANGE_HIGH = 80  # percent
 
 
-async def async_setup_entry(hass: HomeAssistant, entry) -> bool:
+# --------- Setup via Config Entry (plataforma cover) ----------
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
     """Setup via Config Entry."""
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN][entry.entry_id] = {
-        "entry": entry,
-    }
-
-    async_add_entities = hass.data[DOMAIN].get("async_add_entities_cb")
-    if async_add_entities is None:
-        # Fallback when loaded via Config Entries (standard HA paths)
-        async_add_entities = hass.helpers.entity_component.async_add_entities
-
     entity = TimeBasedSyncCover(hass, entry)
-    await entity.async_added_to_hass()
-    async_add_entities([entity])
-    return True  # entity added
 
-# YAML setup (legacy) is optional; kept minimal to avoid breaking old configs.
+    # Guardar referência para update listener
+    hass.data[DOMAIN][entry.entry_id] = {"entity": entity}
+
+    async_add_entities([entity], update_before_add=False)
+
+    # Listener para refletir alterações em entry.data / entry.options
+    async def _async_update_listener(updated_entry: ConfigEntry) -> None:
+        ent = hass.data[DOMAIN][updated_entry.entry_id]["entity"]
+        ent.apply_entry(updated_entry)
+        ent.async_write_ha_state()
+        _LOGGER.debug("Entry %s updated; entity refreshed", updated_entry.entry_id)
+
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+
+
+# --------- YAML setup (legacy, opcional) ----------
 async def async_setup_platform(
     hass: HomeAssistant,
     config: ConfigType,
-    async_add_entities_cb: Callable[[list[CoverEntity]], None],
+    async_add_entities_cb: AddEntitiesCallback,
     discovery_info: DiscoveryInfoType | None = None,
 ) -> None:
     """Setup via YAML (legacy)."""
-    entry_like = type("EntryLike", (), {"data": config, "options": {}, "entry_id": "yaml"})()
-    hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN]["async_add_entities_cb"] = async_add_entities_cb
+    # Emular um "entry" simples para reutilizar a lógica:
+    entry_like = type(
+        "EntryLike",
+        (),
+        {"data": config, "options": {}, "entry_id": "yaml"},
+    )()
     entity = TimeBasedSyncCover(hass, entry_like)
-    async_add_entities_cb([entity])
+    async_add_entities_cb([entity], update_before_add=False)
 
 
 class TimeBasedSyncCover(CoverEntity, RestoreEntity):
@@ -93,59 +93,79 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         | CoverEntityFeature.STOP
         | CoverEntityFeature.SET_POSITION
     )
-    _attr_assumed_state = True  # sem sensores de posição reais (UX adequada). [4](https://esphome.io/components/cover/time_based/)
+    _attr_assumed_state = True  # não há sensores de posição reais
 
-    def __init__(self, hass: HomeAssistant, entry) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.hass = hass
         self.entry = entry  # ConfigEntry ou objeto semelhante (YAML legacy)
-        data = dict(entry.data)
-        options = dict(getattr(entry, "options", {}) or {})
-
-        # Preferir opções sobre dados quando existirem
-        def opt_or_data(key: str, default: Any = None) -> Any:
-            return options.get(key, data.get(key, default))
-
-        name = opt_or_data(CONF_FRIENDLY_NAME, opt_or_data(CONF_NAME, "Time Based Cover"))
-        self._attr_name = name
-
-        # Aliases (texto) — não altera entity_id por si só; serve para exposição opcional
-        self._aliases = opt_or_data(CONF_ALIASES, "")
-
-        # Temporizações
-        self._travel_up: int = int(opt_or_data(CONF_TRAVELLING_TIME_UP, DEFAULT_TRAVEL_TIME))
-        self._travel_down: int = int(opt_or_data(CONF_TRAVELLING_TIME_DOWN, DEFAULT_TRAVEL_TIME))
-
-        # Scripts (entity_id de script.*)
-        self._open_script_id: Optional[str] = opt_or_data(CONF_OPEN_SCRIPT, None)
-        self._close_script_id: Optional[str] = opt_or_data(CONF_CLOSE_SCRIPT, None)
-        self._stop_script_id: Optional[str] = opt_or_data(CONF_STOP_SCRIPT, None)
-
-        # Comportamentos
-        self._send_stop_at_ends: bool = bool(opt_or_data(CONF_SEND_STOP_AT_ENDS, False))
-        self._always_confident: bool = bool(opt_or_data(CONF_ALWAYS_CONFIDENT, False))
-        self._smart_stop_midrange: bool = bool(opt_or_data(CONF_SMART_STOP, False))
 
         # Estado interno
         self._position: int = 0  # 0-100
         self._moving_task: Optional[asyncio.Task] = None
         self._moving_direction: Optional[str] = None  # "up"/"down" ou None
 
-        # IDs e unique_id (opcional se tiveres algo único)
-        self._attr_unique_id = f"{DOMAIN}_{entry.entry_id}"
+        # unique_id baseado no entry_id
+        self._attr_unique_id = f"{DOMAIN}_{getattr(entry, 'entry_id', 'default')}"
 
-    # ------------- ciclo de vida -------------
+        # Carregar configuração inicial
+        self.apply_entry(entry)
 
+    # --------- leitura/atribuição de config ---------
+    def _opt_or_data(self, key: str, default: Any = None) -> Any:
+        data = dict(getattr(self.entry, "data", {}) or {})
+        options = dict(getattr(self.entry, "options", {}) or {})
+        return options.get(key, data.get(key, default))
+
+    def apply_entry(self, entry: ConfigEntry) -> None:
+        """Aplicar dados/opções do entry à entidade."""
+        self.entry = entry  # manter referência atualizada
+
+        name = self._opt_or_data(CONF_FRIENDLY_NAME, self._opt_or_data("name", "Time Based Cover"))
+        self._attr_name = name
+
+        # Aliases (texto) — apenas exposto em attributes
+        self._aliases = self._opt_or_data(CONF_ALIASES, "")
+
+        # Temporizações
+        self._travel_up: int = int(self._opt_or_data(CONF_TRAVELLING_TIME_UP, DEFAULT_TRAVEL_TIME))
+        self._travel_down: int = int(self._opt_or_data(CONF_TRAVELLING_TIME_DOWN, DEFAULT_TRAVEL_TIME))
+
+        # Scripts (entity_id de script.*)
+        self._open_script_id: Optional[str] = self._opt_or_data(CONF_OPEN_SCRIPT, None)
+        self._close_script_id: Optional[str] = self._opt_or_data(CONF_CLOSE_SCRIPT, None)
+        self._stop_script_id: Optional[str] = self._opt_or_data(CONF_STOP_SCRIPT, None)
+
+        # Comportamentos
+        self._send_stop_at_ends: bool = bool(self._opt_or_data(CONF_SEND_STOP_AT_ENDS, False))
+        self._always_confident: bool = bool(self._opt_or_data(CONF_ALWAYS_CONFIDENT, False))
+        self._smart_stop_midrange: bool = bool(self._opt_or_data(CONF_SMART_STOP, False))
+
+        _LOGGER.debug(
+            "Applied entry settings: up=%s, down=%s, open=%s, close=%s, stop=%s, stop_at_ends=%s, confident=%s, midrange=%s",
+            self._travel_up,
+            self._travel_down,
+            self._open_script_id,
+            self._close_script_id,
+            self._stop_script_id,
+            self._send_stop_at_ends,
+            self._always_confident,
+            self._smart_stop_midrange,
+        )
+
+    # --------- ciclo de vida ---------
     async def async_added_to_hass(self) -> None:
-        """Recupera estado anterior."""
+        """Restaurar último estado."""
         await super().async_added_to_hass()
         last_state = await self.async_get_last_state()
-        if last_state and ATTR_CURRENT_POSITION in last_state.attributes:
-            self._position = int(last_state.attributes.get(ATTR_CURRENT_POSITION, 0))
-            _LOGGER.debug("Restored position to %s%%", self._position)  # [1](https://community.home-assistant.io/t/custom-component-cover-time-based/187654)
+        if last_state and (pos := last_state.attributes.get("current_position")) is not None:
+            try:
+                self._position = int(pos)
+                _LOGGER.debug("Restored position to %s%%", self._position)
+            except (TypeError, ValueError):
+                _LOGGER.debug("Invalid restored position: %s", pos)
         self.async_write_ha_state()
 
-    # ------------- propriedades -------------
-
+    # --------- propriedades ---------
     @property
     def current_cover_position(self) -> int | None:
         return self._position
@@ -162,17 +182,16 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     def is_closed(self) -> bool:
         return self._position == 0
 
-    # ------------- helpers de script -------------
-
+    # --------- helpers de script ---------
     async def _run_script(self, entity_id: Optional[str]) -> None:
-        """Executa um script pelo entity_id."""
+        """Executa um script pelo entity_id usando script.turn_on."""
         if not entity_id:
             return
         try:
             await self.hass.services.async_call(
                 domain="script",
-                service=entity_id.split(".", 1)[1],  # script.nome
-                service_data={},
+                service="turn_on",
+                service_data={"entity_id": entity_id},
                 blocking=False,
             )
         except Exception as exc:  # noqa: BLE001
@@ -193,12 +212,10 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         if to_pos > from_pos:
             # subir (abrir)
             return max(0.0, delta * float(self._travel_up))
-        else:
-            # descer (fechar)
-            return max(0.0, delta * float(self._travel_down))
+        # descer (fechar)
+        return max(0.0, delta * float(self._travel_down))
 
-    # ------------- comandos Cover -------------
-
+    # --------- comandos Cover ---------
     async def async_open_cover(self, **kwargs: Any) -> None:
         await self._move_to_target(100)
 
@@ -215,8 +232,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     async def async_stop_cover(self, **kwargs: Any) -> None:
         await self._stop_motion()
 
-    # ------------- lógica de movimento -------------
-
+    # --------- lógica de movimento ---------
     async def _stop_motion(self) -> None:
         """Para movimento atual e executa script de stop."""
         if self._moving_task:
@@ -241,12 +257,10 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         # Determinar direção e acionar script
         direction = "up" if target > self._position else "down"
         self._moving_direction = direction
-
         if direction == "up":
             await self._start_open()
         else:
             await self._start_close()
-
         self.async_write_ha_state()
 
         seconds = self._movement_seconds(self._position, target)
@@ -255,15 +269,14 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             self._moving_direction = None
             return
 
-        # smart_stop_midrange: enviar stop entre 20-80% quando alvo está nesse intervalo
+        # smart_stop_midrange: enviar stop se alvo estiver no intervalo 20-80%
         should_midrange_stop = (
-            self._smart_stop_midrange
-            and MID_RANGE_LOW <= target <= MID_RANGE_HIGH
+            self._smart_stop_midrange and MID_RANGE_LOW <= target <= MID_RANGE_HIGH
         )
 
-        async def _run_move():
+        async def _run_move() -> None:
             try:
-                # Atualiza posição “em tempo real” no fim (simple approach)
+                # Atualiza posição “no fim” (estratégia simples)
                 await asyncio.sleep(seconds)
                 self._position = target
 
@@ -273,7 +286,6 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
                 elif should_midrange_stop:
                     # Enviar stop ao atingir alvo intermediário
                     await self._start_stop()
-
             except asyncio.CancelledError:
                 # Cancelado por novo comando
                 pass
@@ -283,8 +295,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
 
         self._moving_task = asyncio.create_task(_run_move())
 
-    # ------------- estado e atributos -------------
-
+    # --------- estado e atributos ---------
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         attrs: dict[str, Any] = {
@@ -294,6 +305,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             "send_stop_at_ends": self._send_stop_at_ends,
             "always_confident": self._always_confident,
             "smart_stop_midrange": self._smart_stop_midrange,
+            "current_position": self._position,
         }
         if self._open_script_id:
             attrs["open_script_entity_id"] = self._open_script_id
