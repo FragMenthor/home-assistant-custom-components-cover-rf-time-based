@@ -6,8 +6,8 @@ set_known_position:
       domain: cover
   fields:
     position:
-      name: Posição
-      description: Valor de 0 a 100 representando a posição atual ou destino.
+      name: "Posição"
+      description: "Valor de 0 a 100 representando a posição atual ou destino."
       example: 50
       required: true
       selector:
@@ -16,14 +16,14 @@ set_known_position:
           max: 100
           unit_of_measurement: "%"
     confident:
-      name: Confiante
-      description: Indica se a posição é confirmada (verdadeira).
+      name: "Confiante"
+      description: "Indica se a posição é confirmada (verdadeira)."
       default: false
       selector:
         boolean: {}
     position_type:
-      name: Tipo de posição
-      description: Pode ser "current" ou "target".
+      name: "Tipo de posição"
+      description: "Pode ser \"current\" (atual) ou \"target\" (alvo)."
       default: "target"
       selector:
         select:
@@ -39,8 +39,8 @@ set_known_action:
       domain: cover
   fields:
     action:
-      name: Ação
-      description: A ação atual.
+      name: "Ação"
+      description: "A ação atual."
       required: true
       example: "open"
       selector:
