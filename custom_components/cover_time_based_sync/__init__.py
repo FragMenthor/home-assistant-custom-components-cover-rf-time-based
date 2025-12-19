@@ -1,5 +1,6 @@
 
 """Cover Time Based Sync integration."""
+from __future__ import annotations
 
 import logging
 import voluptuous as vol
@@ -8,7 +9,7 @@ from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.helpers import service as ha_service
-from homeassistant.const import Platform  # usar enum Platform
+from homeassistant.const import Platform
 
 from .const import (
     DOMAIN,
@@ -27,7 +28,7 @@ PLATFORMS = [Platform.COVER]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Set up via YAML (legacy) e registar serviços de domínio."""
+    """Setup via YAML (legacy) e registar serviços de domínio."""
     _LOGGER.debug("Integração %s inicializada via YAML", DOMAIN)
 
     # Schemas dos serviços (requerem entity_id para encaminhamento correto)
@@ -67,7 +68,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             call.data,
         )
 
-    # Registar serviços de domínio no setup (recomendado pelos Dev Docs)
+    # Registar serviços de domínio
     hass.services.async_register(
         DOMAIN,
         SERVICE_SET_KNOWN_POSITION,
@@ -80,7 +81,6 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         _handle_set_known_action,
         schema=action_schema,
     )
-
     return True
 
 
@@ -88,8 +88,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Setup a partir de config entry."""
     _LOGGER.debug("Config entry %s inicializada", entry.entry_id)
 
-    # Encaminhar setup para plataformas e aguardar (padrão atual)
-    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)  # 
+    # Encaminhar setup para plataformas e aguardar — método plural recomendado (2024+)
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)  # ✅ novo
     return True
 
 
