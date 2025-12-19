@@ -1,7 +1,4 @@
-
 {
-  "title": "Cover Time Based Sync",
-
   "config": {
     "step": {
       "user": {
@@ -14,7 +11,7 @@
           "open_script_entity_id": "Script de abrir",
           "close_script_entity_id": "Script de fechar",
           "stop_script_entity_id": "Script de parar",
-          "send_stop_at_ends": "Enviar 'stop' ao atingir 0%/100%",
+          "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
           "always_confident": "Assumir posição sempre correta",
           "smart_stop_midrange": "Parar automaticamente entre 20–80%",
           "aliases": "Aliases"
@@ -24,36 +21,30 @@
           "travelling_time_down": "Segundos para fechar totalmente.",
           "open_script_entity_id": "Script que inicia a abertura.",
           "close_script_entity_id": "Script que inicia o fecho.",
-          "stop_script_entity_id": "Script que para o movimento.",
+          "stop_script_entity_id": "Script que pára o movimento.",
           "send_stop_at_ends": "Envia 'stop' ao atingir os extremos.",
-          "always_confident": "Mantém confiança na posição sem feedback.",
-          "smart_stop_midrange": "Envia 'stop' ao atingir alvos entre 20–80%.",
-          "aliases": "Nomes alternativos (separados por vírgulas)"
+          "always_confident": "Mantém confiança na posição mesmo sem feedback.",
+          "smart_stop_midrange": "Envia 'stop' ao atingir alvos intermédios.",
+          "aliases": "Nomes alternativos (separados por vírgulas)."
         }
       },
-
       "reconfigure": {
         "title": "Reconfigurar Cover Time Based Sync",
-        "description": "Atualiza tempos, scripts e comportamento desta cover.",
+        "description": "Atualiza dados obrigatórios (tempos e scripts).",
         "data": {
           "travelling_time_up": "Tempo de subida (s)",
           "travelling_time_down": "Tempo de descida (s)",
           "open_script_entity_id": "Script de abrir",
           "close_script_entity_id": "Script de fechar",
           "stop_script_entity_id": "Script de parar",
-          "send_stop_at_ends": "Enviar 'stop' ao atingir 0%/100%",
+          "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
           "always_confident": "Assumir posição sempre correta",
           "smart_stop_midrange": "Parar automaticamente entre 20–80%",
           "aliases": "Aliases"
         }
       }
-    },
-
-    "abort": {
-      "reconfigure_successful": "Configuração atualizada com sucesso."
     }
   },
-
   "options": {
     "step": {
       "init": {
@@ -65,7 +56,7 @@
           "open_script_entity_id": "Script de abrir",
           "close_script_entity_id": "Script de fechar",
           "stop_script_entity_id": "Script de parar",
-          "send_stop_at_ends": "Enviar 'stop' ao atingir 0%/100%",
+          "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
           "always_confident": "Assumir posição sempre correta",
           "smart_stop_midrange": "Parar automaticamente entre 20–80%",
           "aliases": "Aliases"
@@ -75,11 +66,11 @@
           "travelling_time_down": "Segundos para fechar totalmente.",
           "open_script_entity_id": "Script que inicia a abertura.",
           "close_script_entity_id": "Script que inicia o fecho.",
-          "stop_script_entity_id": "Script que para o movimento.",
+          "stop_script_entity_id": "Script que pára o movimento.",
           "send_stop_at_ends": "Envia 'stop' ao atingir os extremos.",
-          "always_confident": "Mantém confiança na posição sem feedback.",
-          "smart_stop_midrange": "Envia 'stop' ao atingir alvos entre 20–80%.",
-          "aliases": "Nomes alternativos (separados por vírgulas)"
+          "always_confident": "Mantém confiança na posição mesmo sem feedback.",
+          "smart_stop_midrange": "Envia 'stop' ao atingir alvos intermédios.",
+          "aliases": "Nomes alternativos (separados por vírgulas)."
         }
       }
     }
