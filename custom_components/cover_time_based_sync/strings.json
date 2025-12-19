@@ -31,7 +31,7 @@
       },
       "reconfigure": {
         "title": "Reconfigurar Cover Time Based Sync",
-        "description": "Atualiza tempos, scripts e comportamento desta cover.",
+        "description": "Atualiza dados obrigatórios (tempos e scripts).",
         "data": {
           "travelling_time_up": "Tempo de subida (s)",
           "travelling_time_down": "Tempo de descida (s)",
