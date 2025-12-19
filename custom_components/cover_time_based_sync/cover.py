@@ -36,7 +36,7 @@ from .const import (
     ATTR_CONFIDENT,
     ATTR_POSITION_TYPE,
 )
-from .travelcalculator import TravelCalculator, PositionType  # ← integra o teu calculador
+from .travelcalculator import TravelCalculator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,9 +45,9 @@ SIGNAL_SET_KNOWN_POSITION = f"{DOMAIN}_set_known_position"
 SIGNAL_SET_KNOWN_ACTION = f"{DOMAIN}_set_known_action"
 
 DEFAULT_TRAVEL_TIME = 25  # seconds
-MID_RANGE_LOW = 20  # percent
-MID_RANGE_HIGH = 80  # percent
-UPDATE_INTERVAL_SEC = 0.5  # frequência de atualização durante o movimento
+MID_RANGE_LOW = 20        # percent
+MID_RANGE_HIGH = 80       # percent
+UPDATE_INTERVAL_SEC = 1.0 # frequência de atualização durante o movimento
 
 
 # ---------- Setup via Config Entry (plataforma cover) ----------
@@ -278,6 +278,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             self._calc.stop()
             # Atualiza imediatamente a posição calculada no momento do STOP
             self._position = int(round(self._calc.current_position()))
+        # STOP explícito deve sempre chamar o script de stop (comando do utilizador)
         await self._start_stop()
         self.async_write_ha_state()
 
@@ -328,19 +329,26 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
                     self._position = current
                     self.async_write_ha_state()
 
-                    # Paragens automáticas
-                    if self._position in (0, 100) and self._send_stop_at_ends:
-                        await self._start_stop()
+                    # ---------- Paragens automáticas ----------
+                    # 1) Extremos (0/100) — RESPEITA A OPÇÃO 'send_stop_at_ends'
+                    if self._position in (0, 100):
+                        if self._send_stop_at_ends:
+                            await self._start_stop()
+                        # Em qualquer caso, ao chegar ao extremo terminamos o movimento
                         self._calc.stop()
                         break
+
+                    # 2) Alvo intermédio por smart_stop_midrange
                     if should_midrange_stop and self._position == target:
                         await self._start_stop()
                         self._calc.stop()
                         break
 
-                    # Alvo atingido?
+                    # 3) Alvo normal (sem smart_stop_midrange) — terminar movimento
                     if self._position == target:
-                        # Envia stop ao atingir alvo (comenta se não quiseres)
+                        # Ao atingir um alvo (não extremo), terminamos o movimento.
+                        # Não condicionamos pelo 'send_stop_at_ends', pois não é extremo.
+                        # Se preferires NÃO enviar 'stop' aqui, comenta a linha seguinte.
                         await self._start_stop()
                         self._calc.stop()
                         break
