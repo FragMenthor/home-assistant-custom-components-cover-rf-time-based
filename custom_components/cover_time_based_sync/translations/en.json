@@ -1,10 +1,12 @@
+
 {
   "title": "Cover Time Based Sync",
+
   "config": {
     "step": {
       "user": {
         "title": "Cover Time Based Sync",
-        "description": "Initial configuration for the time‑based cover.",
+        "description": "Initial configuration for a time-based cover.",
         "data": {
           "name": "Name",
           "travelling_time_up": "Travel time up (s)",
@@ -14,26 +16,24 @@
           "stop_script_entity_id": "Stop script",
           "send_stop_at_ends": "Send stop at fully open/closed",
           "always_confident": "Always confident position",
-          "smart_stop_midrange": "Stop automatically between 20% and 80%"
+          "smart_stop_midrange": "Auto stop between 20–80%",
+          "aliases": "Aliases"
         },
         "data_description": {
-          "travelling_time_up": "Seconds it takes to fully open the gate.",
-          "travelling_time_down": "Seconds it takes to fully close the gate.",
-          "open_script_entity_id": "Script that starts opening the gate.",
-          "close_script_entity_id": "Script that starts closing the gate.",
-          "stop_script_entity_id": "Script that stops the gate movement.",
-          "send_stop_at_ends": "Send a stop command when reaching 0% or 100%.",
+          "travelling_time_up": "Seconds it takes to fully open.",
+          "travelling_time_down": "Seconds it takes to fully close.",
+          "open_script_entity_id": "Script that starts opening.",
+          "close_script_entity_id": "Script that starts closing.",
+          "stop_script_entity_id": "Script that stops movement.",
+          "send_stop_at_ends": "Send a stop command at 0% or 100%.",
           "always_confident": "Assume position is always correct, even without feedback.",
-          "smart_stop_midrange": "When enabled, sends stop when reaching a target between 20–80%."
+          "smart_stop_midrange": "Send stop when reaching targets between 20–80%.",
+          "aliases": "Optional alternative names (comma-separated)."
         }
-      }
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Cover Time Based Sync options",
-        "description": "Adjust timing, scripts and behaviour for this cover.",
+      },
+      "reconfigure": {
+        "title": "Reconfigure Cover Time Based Sync",
+        "description": "Update required configuration (timings/scripts).",
         "data": {
           "travelling_time_up": "Travel time up (s)",
           "travelling_time_down": "Travel time down (s)",
@@ -42,19 +42,42 @@
           "stop_script_entity_id": "Stop script",
           "send_stop_at_ends": "Send stop at fully open/closed",
           "always_confident": "Always confident position",
-          "aliases": "Aliases",
-          "smart_stop_midrange": "Stop automatically between 20% and 80%"
+          "smart_stop_midrange": "Auto stop between 20–80%",
+          "aliases": "Aliases"
+        }
+      }
+    },
+    "abort": {
+      "reconfigure_successful": "Configuration updated successfully."
+    }
+  },
+
+  "options": {
+    "step": {
+      "init": {
+        "title": "Options — Cover Time Based Sync",
+        "description": "Adjust timings, scripts and behaviour.",
+        "data": {
+          "travelling_time_up": "Travel time up (s)",
+          "travelling_time_down": "Travel time down (s)",
+          "open_script_entity_id": "Open script",
+          "close_script_entity_id": "Close script",
+          "stop_script_entity_id": "Stop script",
+          "send_stop_at_ends": "Send stop at fully open/closed",
+          "always_confident": "Always confident position",
+          "smart_stop_midrange": "Auto stop between 20–80%",
+          "aliases": "Aliases"
         },
         "data_description": {
-          "travelling_time_up": "Seconds it takes to fully open the gate.",
-          "travelling_time_down": "Seconds it takes to fully close the gate.",
-          "open_script_entity_id": "Script that starts opening the gate.",
-          "close_script_entity_id": "Script that starts closing the gate.",
-          "stop_script_entity_id": "Script that stops the gate movement.",
-          "send_stop_at_ends": "Send a stop command when reaching 0% or 100%.",
+          "travelling_time_up": "Seconds it takes to fully open.",
+          "travelling_time_down": "Seconds it takes to fully close.",
+          "open_script_entity_id": "Script that starts opening.",
+          "close_script_entity_id": "Script that starts closing.",
+          "stop_script_entity_id": "Script that stops movement.",
+          "send_stop_at_ends": "Send a stop command at 0% or 100%.",
           "always_confident": "Assume position is always correct, even without feedback.",
-          "aliases": "Optional alternative names for this cover (comma‑separated).",
-          "smart_stop_midrange": "When enabled, sends stop when reaching a target between 20–80%."
+          "smart_stop_midrange": "Send stop when reaching targets between 20–80%.",
+          "aliases": "Optional alternative names (comma-separated)."
         }
       }
     }
