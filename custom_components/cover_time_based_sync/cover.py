@@ -47,7 +47,7 @@ SIGNAL_SET_KNOWN_ACTION = f"{DOMAIN}_set_known_action"
 DEFAULT_TRAVEL_TIME = 25  # seconds
 MID_RANGE_LOW = 20  # percent
 MID_RANGE_HIGH = 80  # percent
-UPDATE_INTERVAL_SEC = 1.0  # frequência de atualização durante o movimento
+UPDATE_INTERVAL_SEC = 0.5  # frequência de atualização durante o movimento
 
 
 # ---------- Setup via Config Entry (plataforma cover) ----------
