@@ -1,10 +1,8 @@
-
 """Cover Time Based Sync — entidade Cover baseada em tempo, com scripts de abrir/fechar/parar e sincronização por cálculo temporal."""
 from __future__ import annotations
 
 import asyncio
 import logging
-import time
 from typing import Any, Optional
 
 from homeassistant.core import HomeAssistant
@@ -17,7 +15,6 @@ from homeassistant.components.cover import (
     CoverEntity,
     CoverEntityFeature,
     ATTR_POSITION,
-    ATTR_CURRENT_POSITION,
 )
 
 from .const import (
@@ -37,8 +34,8 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 DEFAULT_TRAVEL_TIME = 25  # seconds
-MID_RANGE_LOW = 20        # percent
-MID_RANGE_HIGH = 80       # percent
+MID_RANGE_LOW = 20  # percent
+MID_RANGE_HIGH = 80  # percent
 
 
 # --------- Setup via Config Entry (plataforma cover) ----------
@@ -47,7 +44,7 @@ async def async_setup_entry(
     entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Setup via Config Entry."""
+    """Realiza setup da entidade via Config Entry."""
     hass.data.setdefault(DOMAIN, {})
     entity = TimeBasedSyncCover(hass, entry)
 
@@ -80,7 +77,7 @@ async def async_setup_platform(
         (),
         {"data": config, "options": {}, "entry_id": "yaml"},
     )()
-    entity = TimeBasedSyncCover(hass, entry_like)  # type: ignore[arg-type]
+    entity = TimeBasedSyncCover(hass, entry_like)
     async_add_entities_cb([entity], update_before_add=False)
 
 
@@ -93,7 +90,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         | CoverEntityFeature.STOP
         | CoverEntityFeature.SET_POSITION
     )
-    _attr_assumed_state = True  # não há sensores de posição reais
+    _attr_assumed_state = True  # sem sensores de posição reais
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         self.hass = hass
@@ -157,7 +154,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         """Restaurar último estado."""
         await super().async_added_to_hass()
         last_state = await self.async_get_last_state()
-        if last_state and (pos := last_state.attributes.get(ATTR_CURRENT_POSITION)) is not None:
+        if last_state and (pos := last_state.attributes.get("current_position")) is not None:
             try:
                 self._position = int(pos)
                 _LOGGER.debug("Restored position to %s%%", self._position)
@@ -243,7 +240,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         self.async_write_ha_state()
 
     async def _move_to_target(self, target: int) -> None:
-        """Move proporcionalmente até a posição alvo (0-100) sem usar nonlocal."""
+        """Move proporcionalmente até a posição alvo (0-100)."""
         # Cancelar movimento anterior
         if self._moving_task:
             self._moving_task.cancel()
@@ -263,35 +260,22 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             await self._start_close()
         self.async_write_ha_state()
 
-        total_seconds = self._movement_seconds(self._position, target)
-        if total_seconds <= 0:
+        seconds = self._movement_seconds(self._position, target)
+        if seconds <= 0:
             await self._start_stop()
             self._moving_direction = None
             return
 
         # smart_stop_midrange: enviar stop se alvo estiver no intervalo 20-80%
         should_midrange_stop = (
-            self._smart_stop_midrange and 20 <= target <= 80
+            self._smart_stop_midrange and MID_RANGE_LOW <= target <= MID_RANGE_HIGH
         )
-
-        start_pos = self._position
-        end_pos = target
-        start_time = time.monotonic()
 
         async def _run_move() -> None:
             try:
-                # estratégia simples: só atualiza no fim; se quiseres updates “em progresso”,
-                # descomenta o loop abaixo com pequenos sleeps.
-                #
-                # while True:
-                #     elapsed = time.monotonic() - start_time
-                #     if elapsed >= total_seconds:
-                #         break
-                #     await asyncio.sleep(0.1)
-                #
-                # No fim do período, fixa na posição alvo:
-                await asyncio.sleep(total_seconds)
-                self._position = end_pos
+                # Atualiza posição “no fim” (estratégia simples)
+                await asyncio.sleep(seconds)
+                self._position = target
 
                 # Stop automático ao atingir extremos
                 if self._send_stop_at_ends and (self._position in (0, 100)):
@@ -299,7 +283,6 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
                 elif should_midrange_stop:
                     # Enviar stop ao atingir alvo intermediário
                     await self._start_stop()
-
             except asyncio.CancelledError:
                 # Cancelado por novo comando
                 pass
@@ -319,7 +302,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             "send_stop_at_ends": self._send_stop_at_ends,
             "always_confident": self._always_confident,
             "smart_stop_midrange": self._smart_stop_midrange,
-            ATTR_CURRENT_POSITION: self._position,
+            "current_position": self._position,
         }
         if self._open_script_id:
             attrs["open_script_entity_id"] = self._open_script_id
