@@ -1,0 +1,85 @@
+
+{
+  "title": "Sincronización de persiana basada en tiempo",
+
+  "config": {
+    "step": {
+      "user": {
+        "title": "Sincronización de persiana basada en tiempo",
+        "description": "Configuración inicial de una persiana basada en tiempo.",
+        "data": {
+          "name": "Nombre",
+          "travelling_time_up": "Tiempo de subida (s)",
+          "travelling_time_down": "Tiempo de bajada (s)",
+          "open_script_entity_id": "Script de abrir",
+          "close_script_entity_id": "Script de cerrar",
+          "stop_script_entity_id": "Script de parar",
+          "send_stop_at_ends": "Enviar ‘stop’ al abrir/cerrar completamente",
+          "always_confident": "Posición siempre fiable",
+          "smart_stop_midrange": "Parada automática entre 20–80%",
+          "aliases": "Alias"
+        },
+        "data_description": {
+          "travelling_time_up": "Segundos necesarios para abrir completamente.",
+          "travelling_time_down": "Segundos necesarios para cerrar completamente.",
+          "open_script_entity_id": "Script que inicia la apertura.",
+          "close_script_entity_id": "Script que inicia el cierre.",
+          "stop_script_entity_id": "Script que detiene el movimiento.",
+          "send_stop_at_ends": "Envía una orden de parada al 0% o 100%.",
+          "always_confident": "Asumir que la posición es correcta incluso sin feedback.",
+          "smart_stop_midrange": "Envía ‘stop’ al alcanzar objetivos entre 20–80%.",
+          "aliases": "Nombres alternativos opcionales (separados por comas)."
+        }
+      },
+      "reconfigure": {
+        "title": "Reconfigurar sincronización de persiana",
+        "description": "Actualiza la configuración requerida (tiempos/scripts).",
+        "data": {
+          "travelling_time_up": "Tiempo de subida (s)",
+          "travelling_time_down": "Tiempo de bajada (s)",
+          "open_script_entity_id": "Script de abrir",
+          "close_script_entity_id": "Script de cerrar",
+          "stop_script_entity_id": "Script de parar",
+          "send_stop_at_ends": "Enviar ‘stop’ al abrir/cerrar completamente",
+          "always_confident": "Posición siempre fiable",
+          "smart_stop_midrange": "Parada automática entre 20–80%",
+          "aliases": "Alias"
+        }
+      }
+    },
+    "abort": {
+      "reconfigure_successful": "Configuración actualizada correctamente."
+    }
+  },
+
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opciones — Sincronización de persiana",
+        "description": "Ajusta tiempos, scripts y comportamiento.",
+        "data": {
+          "travelling_time_up": "Tiempo de subida (s)",
+          "travelling_time_down": "Tiempo de bajada (s)",
+          "open_script_entity_id": "Script de abrir",
+          "close_script_entity_id": "Script de cerrar",
+          "stop_script_entity_id": "Script de parar",
+          "send_stop_at_ends": "Enviar ‘stop’ al abrir/cerrar completamente",
+          "always_confident": "Posición siempre fiable",
+          "smart_stop_midrange": "Parada automática entre 20–80%",
+          "aliases": "Alias"
+        },
+        "data_description": {
+          "travelling_time_up": "Segundos necesarios para abrir completamente.",
+          "travelling_time_down": "Segundos necesarios para cerrar completamente.",
+          "open_script_entity_id": "Script que inicia la apertura.",
+          "close_script_entity_id": "Script que inicia el cierre.",
+          "stop_script_entity_id": "Script que detiene el movimiento.",
+          "send_stop_at_ends": "Envía una orden de parada al 0% o 100%.",
+          "always_confident": "Asumir que la posición es correcta incluso sin feedback.",
+          "smart_stop_midrange": "Envía ‘stop’ al alcanzar objetivos entre 20–80%.",
+          "aliases": "Nombres alternativos opcionales (separados por comas)."
+        }
+      }
+    }
+  }
+}
