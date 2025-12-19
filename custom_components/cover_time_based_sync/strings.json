@@ -1,7 +1,5 @@
-
 {
   "title": "Cover Time Based Sync",
-
   "config": {
     "step": {
       "user": {
@@ -28,10 +26,9 @@
           "send_stop_at_ends": "Envia 'stop' ao atingir os extremos.",
           "always_confident": "Mantém confiança na posição sem feedback.",
           "smart_stop_midrange": "Envia 'stop' ao atingir alvos entre 20–80%.",
-          "aliases": "Nomes alternativos (separados por vírgulas)"
+          "aliases": "Nomes alternativos (separados por vírgulas)."
         }
       },
-
       "reconfigure": {
         "title": "Reconfigurar Cover Time Based Sync",
         "description": "Atualiza tempos, scripts e comportamento desta cover.",
@@ -48,12 +45,10 @@
         }
       }
     },
-
     "abort": {
       "reconfigure_successful": "Configuração atualizada com sucesso."
     }
   },
-
   "options": {
     "step": {
       "init": {
@@ -79,7 +74,7 @@
           "send_stop_at_ends": "Envia 'stop' ao atingir os extremos.",
           "always_confident": "Mantém confiança na posição sem feedback.",
           "smart_stop_midrange": "Envia 'stop' ao atingir alvos entre 20–80%.",
-          "aliases": "Nomes alternativos (separados por vírgulas)"
+          "aliases": "Nomes alternativos (separados por vírgulas)."
         }
       }
     }
