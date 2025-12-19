@@ -1,4 +1,3 @@
-
 {
   "domain": "cover_time_based_sync",
   "name": "Cover Time Based Sync",
@@ -7,8 +6,7 @@
   "issue_tracker": "https://github.com/FragMenthor/home-assistant-custom-components-cover-time-based-sync/issues",
   "codeowners": ["@davidramosweb", "@FragMenthor"],
   "config_flow": true,
-  "integration_type": "entity",
-  "iot_class": "calculated",
+  "iot_class": "local_push",
   "requirements": [],
   "dependencies": []
 }
