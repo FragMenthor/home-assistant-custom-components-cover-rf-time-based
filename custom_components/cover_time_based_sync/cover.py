@@ -32,8 +32,7 @@ from .travelcalculator import TravelCalculator, TravelStatus
 
 _LOGGER = logging.getLogger(__name__)
 
-UPDATE_INTERVAL = timedelta(seconds=1)
-
+UPDATE_INTERVAL = timedelta(milliseconds=500)
 
 async def async_setup_entry(
     hass: HomeAssistant,
