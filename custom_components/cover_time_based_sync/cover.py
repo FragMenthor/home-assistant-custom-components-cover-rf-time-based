@@ -1,6 +1,6 @@
 # custom_components/cover_time_based_sync/cover.py
 """Cover Time Based Sync — entidade Cover baseada em tempo, com scripts de abrir/fechar/parar,
-sincronização por cálculo temporal e integração com dispatcher para serviços conhecidos."""
+sincronização por cálculo temporal (TravelCalculator) e integração com dispatcher para serviços conhecidos."""
 from __future__ import annotations
 
 import asyncio
@@ -32,10 +32,11 @@ from .const import (
     CONF_SMART_STOP,
     CONF_ALIASES,
     CONF_NAME as CONF_FRIENDLY_NAME,
-    # Atributos de serviços (se precisares internamente)
+    # (opcional) nomes/atributos usados pelos serviços
     ATTR_CONFIDENT,
     ATTR_POSITION_TYPE,
 )
+from .travelcalculator import TravelCalculator, PositionType  # ← integra o teu calculador
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -46,6 +47,7 @@ SIGNAL_SET_KNOWN_ACTION = f"{DOMAIN}_set_known_action"
 DEFAULT_TRAVEL_TIME = 25  # seconds
 MID_RANGE_LOW = 20  # percent
 MID_RANGE_HIGH = 80  # percent
+UPDATE_INTERVAL_SEC = 1.0  # frequência de atualização durante o movimento
 
 
 # ---------- Setup via Config Entry (plataforma cover) ----------
@@ -90,7 +92,7 @@ async def async_setup_platform(
 
 
 class TimeBasedSyncCover(CoverEntity, RestoreEntity):
-    """Entidade Cover baseada em tempo, com sincronização por cálculo + dispatcher."""
+    """Entidade Cover baseada em tempo, com sincronização por TravelCalculator + dispatcher."""
 
     _attr_supported_features = (
         CoverEntityFeature.OPEN
@@ -105,7 +107,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         self.entry = entry  # ConfigEntry ou objeto semelhante (YAML legacy)
 
         # Estado interno
-        self._position: int = 0  # 0-100
+        self._position: int = 0  # 0-100 (inteiro para a UI)
         self._moving_task: Optional[asyncio.Task] = None
         self._moving_direction: Optional[str] = None  # "up"/"down" ou None
         self._last_confident_state: Optional[bool] = None
@@ -116,6 +118,9 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         # Unsubscribers do dispatcher
         self._unsub_known_position = None
         self._unsub_known_action = None
+
+        # TravelCalculator (vai ser inicializado em apply_entry)
+        self._calc: Optional[TravelCalculator] = None
 
         # Carregar configuração inicial
         self.apply_entry(entry)
@@ -137,8 +142,8 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         self._aliases = self._opt_or_data(CONF_ALIASES, "")
 
         # Temporizações
-        self._travel_up: int = int(self._opt_or_data(CONF_TRAVELLING_TIME_UP, DEFAULT_TRAVEL_TIME))
-        self._travel_down: int = int(self._opt_or_data(CONF_TRAVELLING_TIME_DOWN, DEFAULT_TRAVEL_TIME))
+        self._travel_up: float = float(self._opt_or_data(CONF_TRAVELLING_TIME_UP, DEFAULT_TRAVEL_TIME))
+        self._travel_down: float = float(self._opt_or_data(CONF_TRAVELLING_TIME_DOWN, DEFAULT_TRAVEL_TIME))
 
         # Scripts (entity_id de script.*)
         self._open_script_id: Optional[str] = self._opt_or_data(CONF_OPEN_SCRIPT, None)
@@ -149,6 +154,11 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         self._send_stop_at_ends: bool = bool(self._opt_or_data(CONF_SEND_STOP_AT_ENDS, False))
         self._always_confident: bool = bool(self._opt_or_data(CONF_ALWAYS_CONFIDENT, False))
         self._smart_stop_midrange: bool = bool(self._opt_or_data(CONF_SMART_STOP, False))
+
+        # (Re)instancia o calculador com os tempos do entry
+        self._calc = TravelCalculator(self._travel_down, self._travel_up)
+        # Sincroniza o calculador com a posição atual conhecida
+        self._calc.set_position(float(self._position))
 
         _LOGGER.debug(
             "Applied entry settings: up=%s, down=%s, open=%s, close=%s, stop=%s, stop_at_ends=%s, confident=%s, midrange=%s",
@@ -175,14 +185,17 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
                 _LOGGER.debug("Restored position to %s%%", self._position)
             except (TypeError, ValueError):
                 _LOGGER.debug("Invalid restored position: %s", pos)
+
+        # Inicializa calculador com a posição restaurada
+        if self._calc is None:
+            self._calc = TravelCalculator(self._travel_down, self._travel_up)
+        self._calc.set_position(float(self._position))
         self.async_write_ha_state()
 
-        # Subscrever ao sinal "set known position"
+        # Subscrever aos sinais de dispatcher
         self._unsub_known_position = async_dispatcher_connect(
             self.hass, SIGNAL_SET_KNOWN_POSITION, self._dispatcher_set_known_position
         )
-
-        # Subscrever ao sinal "set known action"
         self._unsub_known_action = async_dispatcher_connect(
             self.hass, SIGNAL_SET_KNOWN_ACTION, self._dispatcher_set_known_action
         )
@@ -237,15 +250,6 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     async def _start_stop(self) -> None:
         await self._run_script(self._stop_script_id)
 
-    def _movement_seconds(self, from_pos: int, to_pos: int) -> float:
-        """Calcula segundos necessários com base na direção."""
-        delta = abs(to_pos - from_pos) / 100.0
-        if to_pos > from_pos:
-            # subir (abrir)
-            return max(0.0, delta * float(self._travel_up))
-        # descer (fechar)
-        return max(0.0, delta * float(self._travel_down))
-
     # ---------- comandos Cover ----------
     async def async_open_cover(self, **kwargs: Any) -> None:
         await self._move_to_target(100)
@@ -265,22 +269,26 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
 
     # ---------- lógica de movimento ----------
     async def _stop_motion(self) -> None:
-        """Para movimento atual e executa script de stop."""
+        """Para movimento atual, atualiza calculador e executa script de stop."""
         if self._moving_task:
             self._moving_task.cancel()
             self._moving_task = None
         self._moving_direction = None
+        if self._calc:
+            self._calc.stop()
+            # Atualiza imediatamente a posição calculada no momento do STOP
+            self._position = int(round(self._calc.current_position()))
         await self._start_stop()
         self.async_write_ha_state()
 
     async def _move_to_target(self, target: int) -> None:
-        """Move proporcionalmente até a posição alvo (0-100)."""
+        """Move até à posição alvo (0-100), atualizando 1x/segundo via TravelCalculator."""
         # Cancelar movimento anterior
         if self._moving_task:
             self._moving_task.cancel()
             self._moving_task = None
 
-        # Sem diferença => apenas garantir stop
+        # Sem diferença => apenas garantir stop (para coerência de scripts)
         if target == self._position:
             await self._start_stop()
             return
@@ -292,37 +300,62 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             await self._start_open()
         else:
             await self._start_close()
+
+        # Inicia deslocação no calculador
+        if self._calc is None:
+            self._calc = TravelCalculator(self._travel_down, self._travel_up)
+            self._calc.set_position(float(self._position))
+        self._calc.start_travel(float(target))
+
+        # Atualização imediata do estado após iniciar movimento
         self.async_write_ha_state()
 
-        seconds = self._movement_seconds(self._position, target)
-        if seconds <= 0:
-            await self._start_stop()
-            self._moving_direction = None
-            return
-
         # smart_stop_midrange: enviar stop se alvo estiver no intervalo 20-80%
-        should_midrange_stop = (
-            self._smart_stop_midrange and MID_RANGE_LOW <= target <= MID_RANGE_HIGH
-        )
+        should_midrange_stop = self._smart_stop_midrange and MID_RANGE_LOW <= target <= MID_RANGE_HIGH
 
         async def _run_move() -> None:
             try:
-                # Atualiza posição “no fim” (estratégia simples)
-                await asyncio.sleep(seconds)
-                self._position = target
-                # Stop automático ao atingir extremos
-                if self._send_stop_at_ends and (self._position in (0, 100)):
-                    await self._start_stop()
-                elif should_midrange_stop:
-                    # Enviar stop ao atingir alvo intermédio
-                    await self._start_stop()
+                while True:
+                    await asyncio.sleep(UPDATE_INTERVAL_SEC)
+                    # Posição estimada pelo calculador
+                    current = int(round(self._calc.current_position()))
+                    # Evita overshoot: clamp contra o alvo com base na direção
+                    if direction == "up":
+                        current = min(current, target)
+                    else:
+                        current = max(current, target)
+
+                    self._position = current
+                    self.async_write_ha_state()
+
+                    # Paragens automáticas
+                    if self._position in (0, 100) and self._send_stop_at_ends:
+                        await self._start_stop()
+                        self._calc.stop()
+                        break
+                    if should_midrange_stop and self._position == target:
+                        await self._start_stop()
+                        self._calc.stop()
+                        break
+
+                    # Alvo atingido?
+                    if self._position == target:
+                        # Envia stop ao atingir alvo (comenta se não quiseres)
+                        await self._start_stop()
+                        self._calc.stop()
+                        break
+
             except asyncio.CancelledError:
-                # Cancelado por novo comando
+                # Cancelado por novo comando/STOP
                 pass
             finally:
                 self._moving_direction = None
+                # Garante que a posição final calculada fica sincronizada
+                if self._calc:
+                    self._position = int(round(self._calc.current_position()))
                 self.async_write_ha_state()
 
+        # Agenda a tarefa de movimento incremental
         self._moving_task = asyncio.create_task(_run_move())
 
     # ---------- estado e atributos ----------
@@ -350,15 +383,12 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     # ---------- Dispatcher: helpers ----------
     def _matches_target_entities(self, target_entities: str | list[str] | None) -> bool:
         """Verifica se esta entidade deve processar o chamado, consoante o target."""
-        # Se não foi especificado target, considera que é para todos
         if not target_entities:
             return True
-        # Normaliza para lista
         if isinstance(target_entities, str):
             targets = [t.strip() for t in target_entities.split(",") if t.strip()]
         else:
             targets = [t.strip() for t in target_entities if t and isinstance(t, str)]
-        # Compara com entity_id desta entidade
         return self.entity_id in targets
 
     # ---------- Dispatcher: posição conhecida ----------
@@ -372,7 +402,6 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         """Recebe pedido de set_known_position via dispatcher."""
         if not self._matches_target_entities(target_entities):
             return
-
         if position is None:
             _LOGGER.debug("%s: posição não fornecida — ignorar.", self.entity_id)
             return
@@ -386,22 +415,19 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         # Guarda última “confiança” aplicada (exposto em attributes)
         self._last_confident_state = confident
 
+        if self._calc is None:
+            self._calc = TravelCalculator(self._travel_down, self._travel_up)
+
         if position_type == "current":
-            self._apply_known_position_current(pos_int, confident)
+            # Atualiza posição atual conhecida (sem iniciar movimento)
+            self._calc.set_position(float(pos_int))
+            self._position = int(round(self._calc.current_position()))
+            self.async_write_ha_state()
+            _LOGGER.debug("%s: posição atual definida para %s%% (confident=%s)", self.entity_id, pos_int, confident)
         else:
-            # "target" por omissão
-            self._apply_known_position_target(pos_int, confident)
-
-    def _apply_known_position_current(self, pos: int, confident: bool) -> None:
-        """Atualiza a posição atual conhecida (sem iniciar movimento)."""
-        self._position = pos
-        self.async_write_ha_state()
-        _LOGGER.debug("%s: posição atual definida para %s%% (confident=%s)", self.entity_id, pos, confident)
-
-    def _apply_known_position_target(self, target: int, confident: bool) -> None:
-        """Define um alvo de posição e usa a lógica de movimento."""
-        self.hass.async_create_task(self._move_to_target(target))
-        _LOGGER.debug("%s: alvo de posição definido para %s%% (confident=%s)", self.entity_id, target, confident)
+            # "target" por omissão → inicia movimento até alvo
+            self.hass.async_create_task(self._move_to_target(pos_int))
+            _LOGGER.debug("%s: alvo de posição definido para %s%% (confident=%s)", self.entity_id, pos_int, confident)
 
     # ---------- Dispatcher: ação conhecida ----------
     def _dispatcher_set_known_action(
@@ -412,7 +438,6 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         """Recebe pedido de set_known_action via dispatcher."""
         if not self._matches_target_entities(target_entities):
             return
-
         if not action:
             _LOGGER.debug("%s: ação não fornecida — ignorar.", self.entity_id)
             return
