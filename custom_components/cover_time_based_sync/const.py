@@ -1,4 +1,3 @@
-
 """Constantes da integração Cover Time Based Sync."""
 
 from __future__ import annotations
