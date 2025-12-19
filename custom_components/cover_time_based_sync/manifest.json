@@ -1,15 +1,13 @@
 {
   "domain": "cover_time_based_sync",
   "name": "Cover Time Based Sync",
-  "version": "3.0.0",
+  "version": "1.0.0",
   "documentation": "https://github.com/FragMenthor/home-assistant-custom-components-cover-time-based-sync",
   "issue_tracker": "https://github.com/FragMenthor/home-assistant-custom-components-cover-time-based-sync/issues",
   "requirements": [],
   "dependencies": [],
   "codeowners": [
     "@davidramosweb",
-    "@nagyrobi",
-    "@Alfiegerner",
     "@FragMenthor"
   ],
   "config_flow": true,
