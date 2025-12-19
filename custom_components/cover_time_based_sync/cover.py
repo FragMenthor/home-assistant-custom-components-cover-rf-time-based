@@ -1,4 +1,6 @@
-"""Cover Time Based Sync — entidade Cover baseada em tempo, com scripts de abrir/fechar/parar e sincronização por cálculo temporal."""
+# custom_components/cover_time_based_sync/cover.py
+"""Cover Time Based Sync — entidade Cover baseada em tempo, com scripts de abrir/fechar/parar,
+sincronização por cálculo temporal e integração com dispatcher para serviços conhecidos."""
 from __future__ import annotations
 
 import asyncio
@@ -10,6 +12,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.helpers.dispatcher import async_dispatcher_connect
 
 from homeassistant.components.cover import (
     CoverEntity,
@@ -29,16 +32,23 @@ from .const import (
     CONF_SMART_STOP,
     CONF_ALIASES,
     CONF_NAME as CONF_FRIENDLY_NAME,
+    # Atributos de serviços (se precisares internamente)
+    ATTR_CONFIDENT,
+    ATTR_POSITION_TYPE,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+# Sinais do dispatcher — devem coincidir com os usados no __init__.py
+SIGNAL_SET_KNOWN_POSITION = f"{DOMAIN}_set_known_position"
+SIGNAL_SET_KNOWN_ACTION = f"{DOMAIN}_set_known_action"
 
 DEFAULT_TRAVEL_TIME = 25  # seconds
 MID_RANGE_LOW = 20  # percent
 MID_RANGE_HIGH = 80  # percent
 
 
-# --------- Setup via Config Entry (plataforma cover) ----------
+# ---------- Setup via Config Entry (plataforma cover) ----------
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -47,13 +57,11 @@ async def async_setup_entry(
     """Realiza setup da entidade via Config Entry."""
     hass.data.setdefault(DOMAIN, {})
     entity = TimeBasedSyncCover(hass, entry)
-
     # Guardar referência para update listener
     hass.data[DOMAIN][entry.entry_id] = {"entity": entity}
-
     async_add_entities([entity], update_before_add=False)
 
-    # Listener para refletir alterações em entry.data / entry.options
+    # Listener para refletir alterações em entry.options (Options Flow)
     async def _async_update_listener(updated_entry: ConfigEntry) -> None:
         ent: TimeBasedSyncCover = hass.data[DOMAIN][updated_entry.entry_id]["entity"]
         ent.apply_entry(updated_entry)
@@ -63,7 +71,7 @@ async def async_setup_entry(
     entry.async_on_unload(entry.add_update_listener(_async_update_listener))
 
 
-# --------- YAML setup (legacy, opcional) ----------
+# ---------- YAML setup (legacy, opcional) ----------
 async def async_setup_platform(
     hass: HomeAssistant,
     config: ConfigType,
@@ -82,7 +90,7 @@ async def async_setup_platform(
 
 
 class TimeBasedSyncCover(CoverEntity, RestoreEntity):
-    """Entidade Cover baseada em tempo, com sincronização por cálculo."""
+    """Entidade Cover baseada em tempo, com sincronização por cálculo + dispatcher."""
 
     _attr_supported_features = (
         CoverEntityFeature.OPEN
@@ -100,14 +108,19 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         self._position: int = 0  # 0-100
         self._moving_task: Optional[asyncio.Task] = None
         self._moving_direction: Optional[str] = None  # "up"/"down" ou None
+        self._last_confident_state: Optional[bool] = None
 
         # unique_id baseado no entry_id
         self._attr_unique_id = f"{DOMAIN}_{getattr(entry, 'entry_id', 'default')}"
 
+        # Unsubscribers do dispatcher
+        self._unsub_known_position = None
+        self._unsub_known_action = None
+
         # Carregar configuração inicial
         self.apply_entry(entry)
 
-    # --------- leitura/atribuição de config ---------
+    # ---------- leitura/atribuição de config ----------
     def _opt_or_data(self, key: str, default: Any = None) -> Any:
         data = dict(getattr(self.entry, "data", {}) or {})
         options = dict(getattr(self.entry, "options", {}) or {})
@@ -149,10 +162,12 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             self._smart_stop_midrange,
         )
 
-    # --------- ciclo de vida ---------
+    # ---------- ciclo de vida ----------
     async def async_added_to_hass(self) -> None:
-        """Restaurar último estado."""
+        """Restaura último estado e subscreve sinais do dispatcher."""
         await super().async_added_to_hass()
+
+        # Restauração
         last_state = await self.async_get_last_state()
         if last_state and (pos := last_state.attributes.get("current_position")) is not None:
             try:
@@ -162,7 +177,26 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
                 _LOGGER.debug("Invalid restored position: %s", pos)
         self.async_write_ha_state()
 
-    # --------- propriedades ---------
+        # Subscrever ao sinal "set known position"
+        self._unsub_known_position = async_dispatcher_connect(
+            self.hass, SIGNAL_SET_KNOWN_POSITION, self._dispatcher_set_known_position
+        )
+
+        # Subscrever ao sinal "set known action"
+        self._unsub_known_action = async_dispatcher_connect(
+            self.hass, SIGNAL_SET_KNOWN_ACTION, self._dispatcher_set_known_action
+        )
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Desinscreve sinais ao remover entidade."""
+        if self._unsub_known_position:
+            self._unsub_known_position()
+            self._unsub_known_position = None
+        if self._unsub_known_action:
+            self._unsub_known_action()
+            self._unsub_known_action = None
+
+    # ---------- propriedades ----------
     @property
     def current_cover_position(self) -> int | None:
         return self._position
@@ -179,7 +213,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     def is_closed(self) -> bool:
         return self._position == 0
 
-    # --------- helpers de script ---------
+    # ---------- helpers de script ----------
     async def _run_script(self, entity_id: Optional[str]) -> None:
         """Executa um script pelo entity_id usando script.turn_on."""
         if not entity_id:
@@ -212,7 +246,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         # descer (fechar)
         return max(0.0, delta * float(self._travel_down))
 
-    # --------- comandos Cover ---------
+    # ---------- comandos Cover ----------
     async def async_open_cover(self, **kwargs: Any) -> None:
         await self._move_to_target(100)
 
@@ -229,7 +263,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     async def async_stop_cover(self, **kwargs: Any) -> None:
         await self._stop_motion()
 
-    # --------- lógica de movimento ---------
+    # ---------- lógica de movimento ----------
     async def _stop_motion(self) -> None:
         """Para movimento atual e executa script de stop."""
         if self._moving_task:
@@ -276,12 +310,11 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
                 # Atualiza posição “no fim” (estratégia simples)
                 await asyncio.sleep(seconds)
                 self._position = target
-
                 # Stop automático ao atingir extremos
                 if self._send_stop_at_ends and (self._position in (0, 100)):
                     await self._start_stop()
                 elif should_midrange_stop:
-                    # Enviar stop ao atingir alvo intermediário
+                    # Enviar stop ao atingir alvo intermédio
                     await self._start_stop()
             except asyncio.CancelledError:
                 # Cancelado por novo comando
@@ -292,7 +325,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
 
         self._moving_task = asyncio.create_task(_run_move())
 
-    # --------- estado e atributos ---------
+    # ---------- estado e atributos ----------
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         attrs: dict[str, Any] = {
@@ -310,4 +343,86 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             attrs["close_script_entity_id"] = self._close_script_id
         if self._stop_script_id:
             attrs["stop_script_entity_id"] = self._stop_script_id
+        if self._last_confident_state is not None:
+            attrs["position_confident"] = self._last_confident_state
         return attrs
+
+    # ---------- Dispatcher: helpers ----------
+    def _matches_target_entities(self, target_entities: str | list[str] | None) -> bool:
+        """Verifica se esta entidade deve processar o chamado, consoante o target."""
+        # Se não foi especificado target, considera que é para todos
+        if not target_entities:
+            return True
+        # Normaliza para lista
+        if isinstance(target_entities, str):
+            targets = [t.strip() for t in target_entities.split(",") if t.strip()]
+        else:
+            targets = [t.strip() for t in target_entities if t and isinstance(t, str)]
+        # Compara com entity_id desta entidade
+        return self.entity_id in targets
+
+    # ---------- Dispatcher: posição conhecida ----------
+    def _dispatcher_set_known_position(
+        self,
+        target_entities: str | list[str] | None,
+        position: int | float | None,
+        confident: bool,
+        position_type: str,
+    ) -> None:
+        """Recebe pedido de set_known_position via dispatcher."""
+        if not self._matches_target_entities(target_entities):
+            return
+
+        if position is None:
+            _LOGGER.debug("%s: posição não fornecida — ignorar.", self.entity_id)
+            return
+
+        try:
+            pos_int = max(0, min(100, int(round(float(position)))))
+        except (TypeError, ValueError):
+            _LOGGER.debug("%s: posição inválida (%s) — ignorar.", self.entity_id, position)
+            return
+
+        # Guarda última “confiança” aplicada (exposto em attributes)
+        self._last_confident_state = confident
+
+        if position_type == "current":
+            self._apply_known_position_current(pos_int, confident)
+        else:
+            # "target" por omissão
+            self._apply_known_position_target(pos_int, confident)
+
+    def _apply_known_position_current(self, pos: int, confident: bool) -> None:
+        """Atualiza a posição atual conhecida (sem iniciar movimento)."""
+        self._position = pos
+        self.async_write_ha_state()
+        _LOGGER.debug("%s: posição atual definida para %s%% (confident=%s)", self.entity_id, pos, confident)
+
+    def _apply_known_position_target(self, target: int, confident: bool) -> None:
+        """Define um alvo de posição e usa a lógica de movimento."""
+        self.hass.async_create_task(self._move_to_target(target))
+        _LOGGER.debug("%s: alvo de posição definido para %s%% (confident=%s)", self.entity_id, target, confident)
+
+    # ---------- Dispatcher: ação conhecida ----------
+    def _dispatcher_set_known_action(
+        self,
+        target_entities: str | list[str] | None,
+        action: str | None,
+    ) -> None:
+        """Recebe pedido de set_known_action via dispatcher."""
+        if not self._matches_target_entities(target_entities):
+            return
+
+        if not action:
+            _LOGGER.debug("%s: ação não fornecida — ignorar.", self.entity_id)
+            return
+
+        action = str(action).lower().strip()
+        if action == "open":
+            self.hass.async_create_task(self.async_open_cover())
+        elif action == "close":
+            self.hass.async_create_task(self.async_close_cover())
+        elif action == "stop":
+            self.hass.async_create_task(self.async_stop_cover())
+        else:
+            _LOGGER.debug("%s: ação desconhecida '%s' — ignorar.", self.entity_id, action)
