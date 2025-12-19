@@ -19,13 +19,18 @@ class PositionType(Enum):
     CALCULATED = 2
     CONFIRMED = 3
 
-
-class TravelStatus(Enum):
-    """Estado de deslocação."""
+"""
+class TrravelStatus(Enum):
     DIRECTION_UP = 1   # a aumentar posição (→ 100)
     DIRECTION_DOWN = 2 # a diminuir posição (→ 0)
     STOPPED = 3
+"""
 
+class TravelStatus(Enum):
+    """Estado de deslocação."""
+    STOPPED = 0
+    OPENING = 1
+    CLOSING = 2
 
 def _clamp(val: float, low: float, high: float) -> float:
     return max(low, min(high, val))
