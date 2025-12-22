@@ -1,4 +1,4 @@
-"""Config flow para Cover Time Based Sync."""
+"""Config flow para Cover Time Based Sync com modo 'Controlo Único' (RF) a ocultar campos secundários."""
 from __future__ import annotations
 
 from typing import Any, Dict
@@ -44,17 +44,8 @@ def _first_script(data: dict[str, Any]) -> str | None:
     return None
 
 
-def _entity_optional(
-    schema_dict: Dict[Any, Any],
-    key: str,
-    current_value: str | None,
-    domain: str,
-) -> None:
-    """
-    Adiciona um selector de entidade opcional ao schema.
-    - Se houver valor (string), usa default=<valor>.
-    - Se não houver, não define default (evita 'Entity None ...').
-    """
+def _entity_optional(schema_dict: Dict[Any, Any], key: str, current_value: str | None, domain: str) -> None:
+    """Selector de entidade opcional sem default=None."""
     sel = selector.EntitySelector(selector.EntitySelectorConfig(domain=domain))
     if isinstance(current_value, str) and current_value:
         schema_dict[vol.Optional(key, default=current_value)] = sel
@@ -68,51 +59,99 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Primeiro passo (criação)."""
+        """Passo 1: escolher modo (Controlo Único ON/OFF) e atraso de pulsos."""
         if user_input is not None:
-            # Validação mínima para Controlo Único
-            if user_input.get(CONF_SINGLE_CONTROL_ENABLED):
-                if _first_script(user_input) is None:
-                    # Falta pelo menos um script; mostrar erro traduzível
-                    return self.async_show_form(
-                        step_id="user",
-                        data_schema=self._schema_user(defaults=user_input),
-                        errors={"base": "single_control_requires_script"},
-                    )
-            return self.async_create_entry(title=user_input[CONF_NAME], data=user_input)
+            single = bool(user_input.get(CONF_SINGLE_CONTROL_ENABLED, False))
+            # guarda temporários para passo seguinte
+            self._single_enabled = single
+            self._pulse_ms = int(user_input.get(CONF_SINGLE_CONTROL_PULSE_MS, DEFAULT_PULSE_MS))
+            # avança para o formulário adequado
+            if single:
+                return await self.async_step_single()
+            return await self.async_step_multi()
 
-        return self.async_show_form(step_id="user", data_schema=self._schema_user())
+        schema = vol.Schema({
+            vol.Optional(CONF_SINGLE_CONTROL_ENABLED, default=False): bool,
+            vol.Optional(CONF_SINGLE_CONTROL_PULSE_MS, default=DEFAULT_PULSE_MS): int,
+        })
+        return self.async_show_form(step_id="user", data_schema=schema)
 
-    def _schema_user(self, defaults: dict[str, Any] | None = None) -> vol.Schema:
+    async def async_step_single(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Passo 2A: formulário para Controlo Único (um só script)."""
+        if user_input is not None:
+            # validação: requer pelo menos um script
+            if not _first_script(user_input):
+                return self.async_show_form(
+                    step_id="single",
+                    data_schema=self._schema_single(defaults=user_input),
+                    errors={"base": "single_control_requires_script"},
+                )
+            # cria entrada
+            data = dict(user_input)
+            data[CONF_SINGLE_CONTROL_ENABLED] = True
+            data[CONF_SINGLE_CONTROL_PULSE_MS] = getattr(self, "_pulse_ms", DEFAULT_PULSE_MS)
+            return self.async_create_entry(title=user_input.get(CONF_NAME, "Cover Time Based Sync"), data=data)
+
+        return self.async_show_form(step_id="single", data_schema=self._schema_single())
+
+    async def async_step_multi(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """Passo 2B: formulário normal (três scripts)."""
+        if user_input is not None:
+            data = dict(user_input)
+            data[CONF_SINGLE_CONTROL_ENABLED] = False
+            # o atraso de pulsos só interessa no modo single; não guardar aqui
+            return self.async_create_entry(title=user_input.get(CONF_NAME, "Cover Time Based Sync"), data=data)
+
+        return self.async_show_form(step_id="multi", data_schema=self._schema_multi())
+
+    # ---------- Schemas ----------
+    def _schema_single(self, defaults: dict[str, Any] | None = None) -> vol.Schema:
         d = defaults or {}
-        schema_dict: Dict[Any, Any] = {
+        sch: Dict[Any, Any] = {
             vol.Required(CONF_NAME, default=d.get(CONF_NAME, "")): str,
             vol.Required(CONF_TRAVELLING_TIME_UP, default=d.get(CONF_TRAVELLING_TIME_UP, DEFAULT_TRAVEL_TIME)): int,
             vol.Required(CONF_TRAVELLING_TIME_DOWN, default=d.get(CONF_TRAVELLING_TIME_DOWN, DEFAULT_TRAVEL_TIME)): int,
-            vol.Optional(CONF_SINGLE_CONTROL_ENABLED, default=d.get(CONF_SINGLE_CONTROL_ENABLED, False)): bool,
-            vol.Optional(CONF_SINGLE_CONTROL_PULSE_MS, default=d.get(CONF_SINGLE_CONTROL_PULSE_MS, DEFAULT_PULSE_MS)): int,
+            # opções/flags
             vol.Optional(CONF_SEND_STOP_AT_ENDS, default=d.get(CONF_SEND_STOP_AT_ENDS, False)): bool,
             vol.Optional(CONF_SMART_STOP, default=d.get(CONF_SMART_STOP, False)): bool,
             vol.Optional(CONF_ALWAYS_CONFIDENT, default=d.get(CONF_ALWAYS_CONFIDENT, False)): bool,
             vol.Optional(CONF_ALIASES, default=d.get(CONF_ALIASES, "")): str,
         }
+        # 1 script apenas (o primeiro será usado)
+        _entity_optional(sch, CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT), "script")
+        # sensores
+        _entity_optional(sch, CONF_CLOSE_CONTACT_SENSOR, d.get(CONF_CLOSE_CONTACT_SENSOR), "binary_sensor")
+        _entity_optional(sch, CONF_OPEN_CONTACT_SENSOR, d.get(CONF_OPEN_CONTACT_SENSOR), "binary_sensor")
+        return vol.Schema(sch)
 
-        # Scripts (opcionais) – sem default=None
-        _entity_optional(schema_dict, CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT), "script")
-        _entity_optional(schema_dict, CONF_CLOSE_SCRIPT, d.get(CONF_CLOSE_SCRIPT), "script")
-        _entity_optional(schema_dict, CONF_STOP_SCRIPT, d.get(CONF_STOP_SCRIPT), "script")
+    def _schema_multi(self, defaults: dict[str, Any] | None = None) -> vol.Schema:
+        d = defaults or {}
+        sch: Dict[Any, Any] = {
+            vol.Required(CONF_NAME, default=d.get(CONF_NAME, "")): str,
+            vol.Required(CONF_TRAVELLING_TIME_UP, default=d.get(CONF_TRAVELLING_TIME_UP, DEFAULT_TRAVEL_TIME)): int,
+            vol.Required(CONF_TRAVELLING_TIME_DOWN, default=d.get(CONF_TRAVELLING_TIME_DOWN, DEFAULT_TRAVEL_TIME)): int,
+            vol.Optional(CONF_SEND_STOP_AT_ENDS, default=d.get(CONF_SEND_STOP_AT_ENDS, False)): bool,
+            vol.Optional(CONF_SMART_STOP, default=d.get(CONF_SMART_STOP, False)): bool,
+            vol.Optional(CONF_ALWAYS_CONFIDENT, default=d.get(CONF_ALWAYS_CONFIDENT, False)): bool,
+            vol.Optional(CONF_ALIASES, default=d.get(CONF_ALIASES, "")): str,
+        }
+        # três scripts (opcionais)
+        _entity_optional(sch, CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT), "script")
+        _entity_optional(sch, CONF_CLOSE_SCRIPT, d.get(CONF_CLOSE_SCRIPT), "script")
+        _entity_optional(sch, CONF_STOP_SCRIPT, d.get(CONF_STOP_SCRIPT), "script")
+        # sensores
+        _entity_optional(sch, CONF_CLOSE_CONTACT_SENSOR, d.get(CONF_CLOSE_CONTACT_SENSOR), "binary_sensor")
+        _entity_optional(sch, CONF_OPEN_CONTACT_SENSOR, d.get(CONF_OPEN_CONTACT_SENSOR), "binary_sensor")
+        return vol.Schema(sch)
 
-        # Sensores binários (opcionais) – sem default=None
-        _entity_optional(schema_dict, CONF_CLOSE_CONTACT_SENSOR, d.get(CONF_CLOSE_CONTACT_SENSOR), "binary_sensor")
-        _entity_optional(schema_dict, CONF_OPEN_CONTACT_SENSOR, d.get(CONF_OPEN_CONTACT_SENSOR), "binary_sensor")
-
-        return vol.Schema(schema_dict)
-
+    # ---------- Reconfigure ----------
     async def async_step_reconfigure(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        """Reconfigurar dados."""
+        """Reconfigurar dados (usa o modo guardado para decidir que campos mostrar)."""
         entry = self._get_reconfigure_entry()
+        single = bool(entry.data.get(CONF_SINGLE_CONTROL_ENABLED, False))
+
         if user_input:
-            if user_input.get(CONF_SINGLE_CONTROL_ENABLED) and _first_script(user_input) is None:
+            if single and not _first_script(user_input):
                 return self.async_show_form(
                     step_id="reconfigure",
                     data_schema=self._schema_reconfigure(entry, user_input),
@@ -124,76 +163,78 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
 
     def _schema_reconfigure(self, entry: ConfigEntry, defaults: dict[str, Any] | None = None) -> vol.Schema:
         d = defaults or entry.data
-        schema_dict: Dict[Any, Any] = {
+        single = bool(entry.data.get(CONF_SINGLE_CONTROL_ENABLED, False))
+        sch: Dict[Any, Any] = {
             vol.Required(CONF_TRAVELLING_TIME_UP, default=d.get(CONF_TRAVELLING_TIME_UP, DEFAULT_TRAVEL_TIME)): int,
             vol.Required(CONF_TRAVELLING_TIME_DOWN, default=d.get(CONF_TRAVELLING_TIME_DOWN, DEFAULT_TRAVEL_TIME)): int,
-            vol.Optional(CONF_SINGLE_CONTROL_ENABLED, default=d.get(CONF_SINGLE_CONTROL_ENABLED, False)): bool,
-            vol.Optional(CONF_SINGLE_CONTROL_PULSE_MS, default=d.get(CONF_SINGLE_CONTROL_PULSE_MS, DEFAULT_PULSE_MS)): int,
             vol.Optional(CONF_SEND_STOP_AT_ENDS, default=d.get(CONF_SEND_STOP_AT_ENDS, False)): bool,
             vol.Optional(CONF_ALWAYS_CONFIDENT, default=d.get(CONF_ALWAYS_CONFIDENT, False)): bool,
             vol.Optional(CONF_SMART_STOP, default=d.get(CONF_SMART_STOP, False)): bool,
             vol.Optional(CONF_ALIASES, default=d.get(CONF_ALIASES, "")): str,
         }
+        if single:
+            _entity_optional(sch, CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT), "script")
+            _entity_optional(sch, CONF_CLOSE_CONTACT_SENSOR, d.get(CONF_CLOSE_CONTACT_SENSOR), "binary_sensor")
+            _entity_optional(sch, CONF_OPEN_CONTACT_SENSOR, d.get(CONF_OPEN_CONTACT_SENSOR), "binary_sensor")
+            sch[vol.Optional(CONF_SINGLE_CONTROL_PULSE_MS, default=d.get(CONF_SINGLE_CONTROL_PULSE_MS, DEFAULT_PULSE_MS))] = int
+        else:
+            _entity_optional(sch, CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT), "script")
+            _entity_optional(sch, CONF_CLOSE_SCRIPT, d.get(CONF_CLOSE_SCRIPT), "script")
+            _entity_optional(sch, CONF_STOP_SCRIPT, d.get(CONF_STOP_SCRIPT), "script")
+            _entity_optional(sch, CONF_CLOSE_CONTACT_SENSOR, d.get(CONF_CLOSE_CONTACT_SENSOR), "binary_sensor")
+            _entity_optional(sch, CONF_OPEN_CONTACT_SENSOR, d.get(CONF_OPEN_CONTACT_SENSOR), "binary_sensor")
+        return vol.Schema(sch)
 
-        _entity_optional(schema_dict, CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT), "script")
-        _entity_optional(schema_dict, CONF_CLOSE_SCRIPT, d.get(CONF_CLOSE_SCRIPT), "script")
-        _entity_optional(schema_dict, CONF_STOP_SCRIPT, d.get(CONF_STOP_SCRIPT), "script")
-
-        _entity_optional(schema_dict, CONF_CLOSE_CONTACT_SENSOR, d.get(CONF_CLOSE_CONTACT_SENSOR), "binary_sensor")
-        _entity_optional(schema_dict, CONF_OPEN_CONTACT_SENSOR, d.get(CONF_OPEN_CONTACT_SENSOR), "binary_sensor")
-
-        return vol.Schema(schema_dict)
-
+    # ---------- Options Flow ----------
     @staticmethod
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
-        return OptionsFlowHandler()
+        return OptionsFlowHandler(config_entry)
 
 
 class OptionsFlowHandler(OptionsFlow):
-    """Gestão de opções."""
+    """Gestão de opções com UX adaptativa por modo."""
 
-    def __init__(self) -> None:
+    def __init__(self, config_entry: ConfigEntry) -> None:
         super().__init__()
+        self.config_entry = config_entry
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        data = self.config_entry.data
-        options = self.config_entry.options
-
-        def _get(key: str, default=None):
-            return options.get(key, data.get(key, default))
+        entry = self.config_entry
+        single = bool(entry.data.get(CONF_SINGLE_CONTROL_ENABLED, False))
+        data = entry.data
+        options = entry.options
 
         if user_input is not None:
-            if user_input.get(CONF_SINGLE_CONTROL_ENABLED) and _first_script(user_input) is None:
+            if single and not _first_script(user_input):
                 return self.async_show_form(
                     step_id="init",
-                    data_schema=self._schema(options=user_input),
+                    data_schema=self._schema_options(single, options=user_input, data=data),
                     errors={"base": "single_control_requires_script"},
                 )
             return self.async_create_entry(title="", data=user_input)
 
-        return self.async_show_form(step_id="init", data_schema=self._schema(options=options, data=data))
+        return self.async_show_form(step_id="init", data_schema=self._schema_options(single, options=options, data=data))
 
-    def _schema(self, options: dict[str, Any] | None = None, data: dict[str, Any] | None = None) -> vol.Schema:
+    def _schema_options(self, single: bool, options: dict[str, Any] | None = None, data: dict[str, Any] | None = None) -> vol.Schema:
         o = options or {}
         d = data or {}
-
-        schema_dict: Dict[Any, Any] = {
+        sch: Dict[Any, Any] = {
             vol.Required(CONF_TRAVELLING_TIME_UP, default=o.get(CONF_TRAVELLING_TIME_UP, d.get(CONF_TRAVELLING_TIME_UP, DEFAULT_TRAVEL_TIME))): int,
             vol.Required(CONF_TRAVELLING_TIME_DOWN, default=o.get(CONF_TRAVELLING_TIME_DOWN, d.get(CONF_TRAVELLING_TIME_DOWN, DEFAULT_TRAVEL_TIME))): int,
-            vol.Optional(CONF_SINGLE_CONTROL_ENABLED, default=o.get(CONF_SINGLE_CONTROL_ENABLED, d.get(CONF_SINGLE_CONTROL_ENABLED, False))): bool,
-            vol.Optional(CONF_SINGLE_CONTROL_PULSE_MS, default=o.get(CONF_SINGLE_CONTROL_PULSE_MS, d.get(CONF_SINGLE_CONTROL_PULSE_MS, DEFAULT_PULSE_MS))): int,
             vol.Optional(CONF_SEND_STOP_AT_ENDS, default=o.get(CONF_SEND_STOP_AT_ENDS, d.get(CONF_SEND_STOP_AT_ENDS, False))): bool,
             vol.Optional(CONF_ALWAYS_CONFIDENT, default=o.get(CONF_ALWAYS_CONFIDENT, d.get(CONF_ALWAYS_CONFIDENT, False))): bool,
             vol.Optional(CONF_SMART_STOP, default=o.get(CONF_SMART_STOP, d.get(CONF_SMART_STOP, False))): bool,
             vol.Optional(CONF_ALIASES, default=o.get(CONF_ALIASES, d.get(CONF_ALIASES, ""))): str,
         }
-
-        # Entity selectors opcionais — apenas com default se houver valor
-        _entity_optional(schema_dict, CONF_OPEN_SCRIPT, o.get(CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT)), "script")
-        _entity_optional(schema_dict, CONF_CLOSE_SCRIPT, o.get(CONF_CLOSE_SCRIPT, d.get(CONF_CLOSE_SCRIPT)), "script")
-        _entity_optional(schema_dict, CONF_STOP_SCRIPT, o.get(CONF_STOP_SCRIPT, d.get(CONF_STOP_SCRIPT)), "script")
-
-        _entity_optional(schema_dict, CONF_CLOSE_CONTACT_SENSOR, o.get(CONF_CLOSE_CONTACT_SENSOR, d.get(CONF_CLOSE_CONTACT_SENSOR)), "binary_sensor")
-        _entity_optional(schema_dict, CONF_OPEN_CONTACT_SENSOR, o.get(CONF_OPEN_CONTACT_SENSOR, d.get(CONF_OPEN_CONTACT_SENSOR)), "binary_sensor")
-
-        return vol.Schema(schema_dict)
+        if single:
+            _entity_optional(sch, CONF_OPEN_SCRIPT, o.get(CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT)), "script")
+            _entity_optional(sch, CONF_CLOSE_CONTACT_SENSOR, o.get(CONF_CLOSE_CONTACT_SENSOR, d.get(CONF_CLOSE_CONTACT_SENSOR)), "binary_sensor")
+            _entity_optional(sch, CONF_OPEN_CONTACT_SENSOR, o.get(CONF_OPEN_CONTACT_SENSOR, d.get(CONF_OPEN_CONTACT_SENSOR)), "binary_sensor")
+            sch[vol.Optional(CONF_SINGLE_CONTROL_PULSE_MS, default=o.get(CONF_SINGLE_CONTROL_PULSE_MS, d.get(CONF_SINGLE_CONTROL_PULSE_MS, DEFAULT_PULSE_MS)))] = int
+        else:
+            _entity_optional(sch, CONF_OPEN_SCRIPT, o.get(CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT)), "script")
+            _entity_optional(sch, CONF_CLOSE_SCRIPT, o.get(CONF_CLOSE_SCRIPT, d.get(CONF_CLOSE_SCRIPT)), "script")
+            _entity_optional(sch, CONF_STOP_SCRIPT, o.get(CONF_STOP_SCRIPT, d.get(CONF_STOP_SCRIPT)), "script")
+            _entity_optional(sch, CONF_CLOSE_CONTACT_SENSOR, o.get(CONF_CLOSE_CONTACT_SENSOR, d.get(CONF_CLOSE_CONTACT_SENSOR)), "binary_sensor")
+            _entity_optional(sch, CONF_OPEN_CONTACT_SENSOR, o.get(CONF_OPEN_CONTACT_SENSOR, d.get(CONF_OPEN_CONTACT_SENSOR)), "binary_sensor")
+        return vol.Schema(sch)
