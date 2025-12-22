@@ -1,13 +1,14 @@
-"""Constantes da integração Cover Time Based Sync."""
 
+# custom_components/cover_time_based_sync/const.py
+"""Constantes da integração Cover Time Based Sync."""
 from __future__ import annotations
 
 # Domínio da integração
 DOMAIN: str = "cover_time_based_sync"
 
-# -------------------------
+# -------------------------------
 # Chaves de configuração (Config Entry: entry.data / entry.options)
-# -------------------------
+# -------------------------------
 CONF_NAME: str = "name"
 
 # Tempos (segundos) para abrir/fechar totalmente
@@ -19,15 +20,20 @@ CONF_OPEN_SCRIPT: str = "open_script_entity_id"
 CONF_CLOSE_SCRIPT: str = "close_script_entity_id"
 CONF_STOP_SCRIPT: str = "stop_script_entity_id"
 
-# Comportamentos
-CONF_SEND_STOP_AT_ENDS: str = "send_stop_at_ends"        # enviar stop ao atingir 0%/100%
-CONF_ALWAYS_CONFIDENT: str = "always_confident"          # estado assumido sempre "confiante"
-CONF_SMART_STOP: str = "smart_stop_midrange"             # enviar stop entre 20–80% ao atingir alvo
-CONF_ALIASES: str = "aliases"                            # nomes alternativos (texto/CSV)
+# Sensores binários de contacto (opcionais)
+# - quando 'on' indica contacto ativo; fechado → 0%, aberto → 100%
+CONF_CLOSE_CONTACT_SENSOR: str = "close_contact_sensor_entity_id"
+CONF_OPEN_CONTACT_SENSOR: str = "open_contact_sensor_entity_id"
 
-# -------------------------
+# Comportamentos
+CONF_SEND_STOP_AT_ENDS: str = "send_stop_at_ends"  # enviar stop ao atingir 0%/100%
+CONF_ALWAYS_CONFIDENT: str = "always_confident"    # estado assumido sempre "confiante"
+CONF_SMART_STOP: str = "smart_stop_midrange"       # enviar stop entre 20–80% ao atingir alvo
+CONF_ALIASES: str = "aliases"                      # nomes alternativos (texto/CSV)
+
+# -------------------------------
 # Serviços de domínio e atributos (para entity_service_call)
-# -------------------------
+# -------------------------------
 # Nomes de serviços expostos por esta integração (domain: cover_time_based_sync)
 SERVICE_SET_KNOWN_POSITION: str = "set_known_position"
 SERVICE_SET_KNOWN_ACTION: str = "set_known_action"
@@ -39,9 +45,9 @@ ATTR_POSITION_TYPE: str = "position_type"     # "current" | "target"
 ATTR_POSITION_TYPE_TARGET: str = "target"     # valor para ATTR_POSITION_TYPE indicar alvo
 
 # Ação para SERVICE_SET_KNOWN_ACTION
-ATTR_ACTION: str = "action"                   # "open" | "close" | "stop"
+ATTR_ACTION: str = "action"  # "open" | "close" | "stop"
 
-# (Opcional) nomes simbólicos para ações — se precisares noutro ponto
+# (Opcional) nomes simbólicos para ações
 ACTION_OPEN: str = "open"
 ACTION_CLOSE: str = "close"
 ACTION_STOP: str = "stop"
