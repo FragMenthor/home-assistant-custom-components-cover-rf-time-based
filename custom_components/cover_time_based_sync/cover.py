@@ -1,5 +1,6 @@
 """Cover Time Based Sync — entidade Cover baseada em tempo, com scripts,
 sensores de contacto e modo 'Controlo Único' (RF) nativo com próxima ação em atributo."""
+
 from __future__ import annotations
 
 import asyncio
@@ -87,12 +88,6 @@ async def async_setup_platform(
 
 
 class TimeBasedSyncCover(CoverEntity, RestoreEntity):
-    _attr_supported_features = (
-        CoverEntityFeature.OPEN
-        | CoverEntityFeature.CLOSE
-        | CoverEntityFeature.STOP
-        | CoverEntityFeature.SET_POSITION
-    )
     _attr_assumed_state = True
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -124,6 +119,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
 
         self.apply_entry(entry)
 
+    # -------- Utilitários --------
     def _opt_or_data(self, key: str, default: Any = None) -> Any:
         data = dict(getattr(self.entry, "data", {}) or {})
         options = dict(getattr(self.entry, "options", {}) or {})
@@ -158,9 +154,12 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         self._close_contact_sensor_id = self._opt_or_data(CONF_CLOSE_CONTACT_SENSOR, None)
         self._open_contact_sensor_id = self._opt_or_data(CONF_OPEN_CONTACT_SENSOR, None)
 
-        # Controlo Único
         self._single_control_enabled = bool(self._opt_or_data(CONF_SINGLE_CONTROL_ENABLED, False))
-        self._single_control_script_id = self._first_script() if self._single_control_enabled else None
+        if self._single_control_enabled:
+            self._single_control_script_id = self._opt_or_data(CONF_OPEN_SCRIPT, None) or self._first_script()
+        else:
+            self._single_control_script_id = None
+
         self._single_pulse_delay_ms = int(self._opt_or_data(CONF_SINGLE_CONTROL_PULSE_MS, 400))
 
         if self._calc is None:
@@ -204,7 +203,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         self._calc.set_position(float(self._position))
 
         await self._set_next_action(NEXT_OPEN if self._position == 0 else (NEXT_CLOSE if self._position == 100 else NEXT_STOP))
-        self.async_write_ha__state = self.async_write_ha_state  # alias defensivo (opcional)
+
         self.async_write_ha_state()
 
         self._unsub_known_position = async_dispatcher_connect(
@@ -214,6 +213,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             self.hass, SIGNAL_SET_KNOWN_ACTION, self._dispatcher_set_known_action
         )
 
+        # Sensores de contacto (opcionais)
         if self._close_contact_sensor_id:
             self._unsub_close_contact = async_track_state_change_event(
                 self.hass, [self._close_contact_sensor_id], self._closed_contact_state_changed
@@ -240,6 +240,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         if self._unsub_open_contact:
             self._unsub_open_contact(); self._unsub_open_contact = None
 
+    # ------------------ Propriedades ------------------
     @property
     def current_cover_position(self) -> int | None:
         return self._position
@@ -256,8 +257,22 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     def is_closed(self) -> bool:
         return self._position == 0
 
+    @property
+    def supported_features(self) -> int:
+        base = CoverEntityFeature.SET_POSITION  # slider sempre disponível
+        if not self._single_control_enabled:
+            return base | CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE | CoverEntityFeature.STOP
+        next_act = self._single_next_action
+        if next_act == NEXT_OPEN:
+            return base | CoverEntityFeature.OPEN
+        if next_act == NEXT_CLOSE:
+            return base | CoverEntityFeature.CLOSE
+        return base | CoverEntityFeature.STOP
+
+    # ------------------ Helpers Controlo Único ------------------
     async def _single_pulse(self) -> None:
         if not self._single_control_enabled or not self._single_control_script_id:
+            _LOGGER.debug("Single control pulse skipped (enabled=%s, script=%s)", self._single_control_enabled, self._single_control_script_id)
             return
         try:
             await self.hass.services.async_call(
@@ -308,6 +323,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             await self._set_next_action(NEXT_STOP)
             return
 
+    # ------------------ Execução de scripts ------------------
     async def _run_script(self, entity_id: Optional[str]) -> None:
         if self._single_control_enabled:
             await self._single_pulse()
@@ -320,10 +336,16 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             _LOGGER.warning("Falha ao executar script %s: %s", entity_id, exc)
 
     async def _start_open(self) -> None:
-        await (self._ensure_action_single(NEXT_OPEN) if self._single_control_enabled else self._run_script(self._open_script_id))
+        if self._single_control_enabled:
+            await self._ensure_action_single(NEXT_OPEN)
+        else:
+            await self._run_script(self._open_script_id)
 
     async def _start_close(self) -> None:
-        await (self._ensure_action_single(NEXT_CLOSE) if self._single_control_enabled else self._run_script(self._close_script_id))
+        if self._single_control_enabled:
+            await self._ensure_action_single(NEXT_CLOSE)
+        else:
+            await self._run_script(self._close_script_id)
 
     async def _start_stop(self) -> None:
         if self._single_control_enabled:
@@ -331,18 +353,19 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         else:
             await self._run_script(self._stop_script_id)
 
+    # ------------------ Movimento ------------------
     async def async_open_cover(self, **kwargs: Any) -> None:
-        await self._move_to_target(100)
+        await self._move_to_target(100, drive_scripts=True)
 
     async def async_close_cover(self, **kwargs: Any) -> None:
-        await self._move_to_target(0)
+        await self._move_to_target(0, drive_scripts=True)
 
     async def async_set_cover_position(self, **kwargs: Any) -> None:
         target = kwargs.get(ATTR_POSITION)
         if target is None:
             return
         target = max(0, min(100, int(target)))
-        await self._move_to_target(target)
+        await self._move_to_target(target, drive_scripts=True)
 
     async def async_stop_cover(self, **kwargs: Any) -> None:
         await self._stop_motion()
@@ -359,26 +382,30 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         await self._start_stop()
         self.async_write_ha_state()
 
-    async def _move_to_target(self, target: int) -> None:
+    async def _move_to_target_virtual(self, target: int) -> None:
+        await self._move_to_target(target, drive_scripts=False)
+
+    async def _move_to_target(self, target: int, *, drive_scripts: bool) -> None:
         if self._moving_task:
             self._moving_task.cancel(); self._moving_task = None
 
         if target == self._position:
             if target in (0, 100):
-                if self._send_stop_at_ends:
+                if self._send_stop_at_ends and drive_scripts:
                     await self._start_stop()
             else:
-                if self._smart_stop_midrange:
+                if self._smart_stop_midrange and drive_scripts:
                     await self._start_stop()
             return
 
         direction = "up" if target > self._position else "down"
         self._moving_direction = direction
 
-        if direction == "up":
-            await self._start_open()
-        else:
-            await self._start_close()
+        if drive_scripts:
+            if direction == "up":
+                await self._start_open()
+            else:
+                await self._start_close()
 
         if self._calc is None:
             self._calc = TravelCalculator(self._travel_down, self._travel_up)
@@ -402,14 +429,15 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
                     self.async_write_ha_state()
 
                     if self._position in (0, 100):
-                        if self._send_stop_at_ends:
+                        if self._send_stop_at_ends and drive_scripts:
                             await self._start_stop()
                         await self._set_next_action(NEXT_OPEN if self._position == 0 else NEXT_CLOSE)
                         self._calc.stop()
                         break
 
                     if should_midrange_stop and self._position == target:
-                        await self._start_stop()
+                        if drive_scripts:
+                            await self._start_stop()
                         await self._set_next_action(NEXT_CLOSE if direction == "up" else NEXT_OPEN)
                         self._calc.stop()
                         break
@@ -429,6 +457,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         self._moving_task = asyncio.create_task(_run_move())
         await self._set_next_action(NEXT_STOP)
 
+    # ------------------ Atributos Extra ------------------
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         attrs: dict[str, Any] = {
@@ -445,19 +474,21 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             "single_control_pulse_delay_ms": self._single_pulse_delay_ms,
             "single_control_next_action": self._single_next_action,
         }
-
-        if self._open_script_id:  attrs["open_script_entity_id"] = self._open_script_id
-        if self._close_script_id: attrs["close_script_entity_id"] = self._close_script_id
-        if self._stop_script_id:  attrs["stop_script_entity_id"] = self._stop_script_id
-
-        if self._close_contact_sensor_id: attrs["close_contact_sensor_entity_id"] = self._close_contact_sensor_id
-        if self._open_contact_sensor_id:  attrs["open_contact_sensor_entity_id"] = self._open_contact_sensor_id
-
+        if self._open_script_id:
+            attrs["open_script_entity_id"] = self._open_script_id
+        if self._close_script_id:
+            attrs["close_script_entity_id"] = self._close_script_id
+        if self._stop_script_id:
+            attrs["stop_script_entity_id"] = self._stop_script_id
+        if self._close_contact_sensor_id:
+            attrs["close_contact_sensor_entity_id"] = self._close_contact_sensor_id
+        if self._open_contact_sensor_id:
+            attrs["open_contact_sensor_entity_id"] = self._open_contact_sensor_id
         if self._last_confident_state is not None:
             attrs["position_confident"] = self._last_confident_state
-
         return attrs
 
+    # ------------------ Dispatcher (serviços) ------------------
     def _matches_target_entities(self, target_entities: str | list[str] | None) -> bool:
         if not target_entities:
             return True
@@ -496,8 +527,10 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             if self._single_control_enabled and self._position in (0, 100):
                 asyncio.create_task(self._set_next_action(NEXT_OPEN if self._position == 0 else NEXT_CLOSE))
             self.async_write_ha_state()
+            _LOGGER.debug("%s: posição atual definida para %s%% (confident=%s)", self.entity_id, pos_int, confident)
         else:
-            self.hass.async_create_task(self._move_to_target(pos_int))
+            self.hass.async_create_task(self._move_to_target(pos_int, drive_scripts=True))
+            _LOGGER.debug("%s: alvo de posição definido para %s%% (confident=%s)", self.entity_id, pos_int, confident)
 
     def _dispatcher_set_known_action(
         self,
@@ -520,7 +553,9 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         else:
             _LOGGER.debug("%s: ação desconhecida '%s' — ignorar.", self.entity_id, action)
 
+    # ------------------ Sensores binários ------------------
     async def _apply_contact_hit(self, forced_position: int, *, source_entity: Optional[str] = None) -> None:
+        """Contacto ON: posição CONFIRMED, cancela movimento; ajusta próxima ação; opcional stop no extremo."""
         if self._moving_task:
             self._moving_task.cancel(); self._moving_task = None
         self._moving_direction = None
@@ -543,14 +578,36 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
 
     async def _closed_contact_state_changed(self, event) -> None:
         new_state = event.data.get("new_state")
+        old_state = event.data.get("old_state")
         if not new_state:
             return
-        if str(new_state.state).lower() == "on":
+
+        ns = str(new_state.state).lower()
+        os = str(old_state.state).lower() if old_state else None
+
+        if ns == "on":
             await self._apply_contact_hit(0, source_entity=self._close_contact_sensor_id)
+            return
+
+        # OFF ao sair de 0% -> abrir virtualmente
+        if ns == "off" and os == "on":
+            if not self._moving_task:
+                await self._move_to_target_virtual(100)
 
     async def _open_contact_state_changed(self, event) -> None:
         new_state = event.data.get("new_state")
+        old_state = event.data.get("old_state")
         if not new_state:
             return
-        if str(new_state.state).lower() == "on":
+
+        ns = str(new_state.state).lower()
+        os = str(old_state.state).lower() if old_state else None
+
+        if ns == "on":
             await self._apply_contact_hit(100, source_entity=self._open_contact_sensor_id)
+            return
+
+        # OFF ao sair de 100% -> fechar virtualmente
+        if ns == "off" and os == "on":
+            if not self._moving_task:
+                await self._move_to_target_virtual(0)
