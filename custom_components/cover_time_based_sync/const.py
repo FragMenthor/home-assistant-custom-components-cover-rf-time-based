@@ -30,8 +30,7 @@ CONF_ALIASES: str = "aliases"
 
 # -------- Controlo Único (RF) --------
 CONF_SINGLE_CONTROL_ENABLED: str = "single_control_enabled"
-CONF_SINGLE_CONTROL_INPUT_SELECT: str = "single_control_input_select_entity_id"  # opcional
-CONF_SINGLE_CONTROL_PULSE_MS: str = "single_control_pulse_delay_ms"              # atraso entre pulsos
+CONF_SINGLE_CONTROL_PULSE_MS: str = "single_control_pulse_delay_ms"  # atraso entre pulsos
 
 # -------------------------------
 # Serviços
