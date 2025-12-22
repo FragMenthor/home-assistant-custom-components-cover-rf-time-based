@@ -1,9 +1,34 @@
+
 {
   "config": {
     "step": {
       "user": {
         "title": "Cover Time Based Sync",
-        "description": "Configuração inicial da cobertura baseada em tempo.",
+        "description": "Escolha primeiro o modo.",
+        "data": {
+          "single_control_enabled": "Ativar Controlo Único (botão RF)",
+          "single_control_pulse_delay_ms": "Atraso entre pulsos (ms)"
+        }
+      },
+      "single": {
+        "title": "Configuração — Controlo Único",
+        "description": "Configure com um único script.",
+        "data": {
+          "name": "Nome",
+          "travelling_time_up": "Tempo de subida (s)",
+          "travelling_time_down": "Tempo de descida (s)",
+          "open_script_entity_id": "Script de controlo único",
+          "close_contact_sensor_entity_id": "Sensor de contacto (fechado)",
+          "open_contact_sensor_entity_id": "Sensor de contacto (aberto)",
+          "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
+          "always_confident": "Assumir sempre posição correta",
+          "smart_stop_midrange": "Parar automaticamente entre 20–80%",
+          "aliases": "Aliases"
+        }
+      },
+      "multi": {
+        "title": "Configuração — Standard",
+        "description": "Configure com até três scripts.",
         "data": {
           "name": "Nome",
           "travelling_time_up": "Tempo de subida (s)",
@@ -13,89 +38,27 @@
           "stop_script_entity_id": "Script de parar",
           "close_contact_sensor_entity_id": "Sensor de contacto (fechado)",
           "open_contact_sensor_entity_id": "Sensor de contacto (aberto)",
-          "single_control_enabled": "Ativar Controlo Único (botão RF)",
-          "single_control_pulse_delay_ms": "Atraso entre pulsos (ms)",
           "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
           "always_confident": "Assumir sempre posição correta",
           "smart_stop_midrange": "Parar automaticamente entre 20–80%",
           "aliases": "Aliases"
-        },
-        "data_description": {
-          "travelling_time_up": "Segundos necessários para abrir totalmente.",
-          "travelling_time_down": "Segundos necessários para fechar totalmente.",
-          "open_script_entity_id": "Script que aciona a abertura.",
-          "close_script_entity_id": "Script que aciona o fecho.",
-          "stop_script_entity_id": "Script que pára o movimento.",
-          "close_contact_sensor_entity_id": "Sensor binário que indica fecho total quando ON (posição → 0% e CONFIRMADA).",
-          "open_contact_sensor_entity_id": "Sensor binário que indica abertura total quando ON (posição → 100% e CONFIRMADA).",
-          "single_control_enabled": "Usa lógica de botão único RF: abrir→parar→fechar→parar…; apenas o PRIMEIRO script fornecido é usado.",
-          "single_control_pulse_delay_ms": "Atraso entre pulsos consecutivos, usado para parar e inverter.",
-          "send_stop_at_ends": "Envia 'stop' ao atingir os extremos.",
-          "always_confident": "Mantém a posição como confiável sem feedback externo.",
-          "smart_stop_midrange": "Envia 'stop' ao atingir alvos intermédios.",
-          "aliases": "Lista de nomes alternativos separados por vírgulas."
         }
       },
       "reconfigure": {
         "title": "Reconfigurar Cover Time Based Sync",
-        "description": "Atualizar tempos, scripts e sensores.",
-        "data": {
-          "travelling_time_up": "Tempo de subida (s)",
-          "travelling_time_down": "Tempo de descida (s)",
-          "open_script_entity_id": "Script de abertura",
-          "close_script_entity_id": "Script de fecho",
-          "stop_script_entity_id": "Script de parar",
-          "close_contact_sensor_entity_id": "Sensor de contacto (fechado)",
-          "open_contact_sensor_entity_id": "Sensor de contacto (aberto)",
-          "single_control_enabled": "Ativar Controlo Único (botão RF)",
-          "single_control_pulse_delay_ms": "Atraso entre pulsos (ms)",
-          "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
-          "always_confident": "Assumir sempre posição correta",
-          "smart_stop_midrange": "Parar automaticamente entre 20–80%",
-          "aliases": "Aliases"
-        }
+        "description": "Atualize os campos conforme o modo selecionado."
       }
-    },
-    "error": {
-      "single_control_requires_script": "O Controlo Único requer pelo menos um script."
     },
     "options": {
       "step": {
         "init": {
           "title": "Opções — Cover Time Based Sync",
-          "description": "Ajuste tempos, scripts, sensores e comportamento.",
-          "data": {
-            "travelling_time_up": "Tempo de subida (s)",
-            "travelling_time_down": "Tempo de descida (s)",
-            "open_script_entity_id": "Script de abertura",
-            "close_script_entity_id": "Script de fecho",
-            "stop_script_entity_id": "Script de parar",
-            "close_contact_sensor_entity_id": "Sensor de contacto (fechado)",
-            "open_contact_sensor_entity_id": "Sensor de contacto (aberto)",
-            "single_control_enabled": "Ativar Controlo Único (botão RF)",
-            "single_control_pulse_delay_ms": "Atraso entre pulsos (ms)",
-            "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
-            "always_confident": "Assumir sempre posição correta",
-            "smart_stop_midrange": "Parar automaticamente entre 20–80%",
-            "aliases": "Aliases"
-          },
-          "data_description": {
-            "travelling_time_up": "Segundos necessários para abrir totalmente.",
-            "travelling_time_down": "Segundos necessários para fechar totalmente.",
-            "open_script_entity_id": "Script que aciona a abertura.",
-            "close_script_entity_id": "Script que aciona o fecho.",
-            "stop_script_entity_id": "Script que pára o movimento.",
-            "close_contact_sensor_entity_id": "Sensor binário que indica fecho total quando ON (posição → 0% e CONFIRMADA).",
-            "open_contact_sensor_entity_id": "Sensor binário que indica abertura total quando ON (posição → 100% e CONFIRMADA).",
-            "single_control_enabled": "Usa lógica de botão único RF: abrir→parar→fechar→parar…; apenas o PRIMEIRO script fornecido é usado.",
-            "single_control_pulse_delay_ms": "Atraso entre pulsos consecutivos, usado para parar e inverter.",
-            "send_stop_at_ends": "Envia 'stop' ao atingir os extremos.",
-            "always_confident": "Mantém a posição como confiável sem feedback externo.",
-            "smart_stop_midrange": "Envia 'stop' ao atingir alvos intermédios.",
-            "aliases": "Lista de nomes alternativos separados por vírgulas."
-          }
+          "description": "Ajuste conforme o seu modo."
         }
       }
+    },
+    "error": {
+      "single_control_requires_script": "O Controlo Único requer pelo menos um script."
     }
   }
 }
