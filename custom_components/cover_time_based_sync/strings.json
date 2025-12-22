@@ -1,3 +1,4 @@
+
 {
   "config": {
     "step": {
@@ -11,6 +12,8 @@
           "open_script_entity_id": "Open script",
           "close_script_entity_id": "Close script",
           "stop_script_entity_id": "Stop script",
+          "close_contact_sensor_entity_id": "Closed contact sensor (binary_sensor)",
+          "open_contact_sensor_entity_id": "Open contact sensor (binary_sensor)",
           "send_stop_at_ends": "Send 'stop' at 0% / 100%",
           "always_confident": "Assume position is always correct",
           "smart_stop_midrange": "Auto stop between 20–80%",
@@ -22,6 +25,8 @@
           "open_script_entity_id": "Script that triggers opening.",
           "close_script_entity_id": "Script that triggers closing.",
           "stop_script_entity_id": "Script that stops motion.",
+          "close_contact_sensor_entity_id": "Binary sensor that indicates fully closed when ON (position → 0% and becomes CONFIRMED).",
+          "open_contact_sensor_entity_id": "Binary sensor that indicates fully open when ON (position → 100% and becomes CONFIRMED).",
           "send_stop_at_ends": "Sends 'stop' when reaching the ends.",
           "always_confident": "Keeps confidence in position without feedback.",
           "smart_stop_midrange": "Sends 'stop' when reaching mid targets.",
@@ -30,47 +35,53 @@
       },
       "reconfigure": {
         "title": "Reconfigure Cover Time Based Sync",
-        "description": "Update required fields (times and scripts).",
+        "description": "Update required fields (times, scripts and sensors).",
         "data": {
           "travelling_time_up": "Travel time up (s)",
           "travelling_time_down": "Travel time down (s)",
           "open_script_entity_id": "Open script",
           "close_script_entity_id": "Close script",
           "stop_script_entity_id": "Stop script",
+          "close_contact_sensor_entity_id": "Closed contact sensor (binary_sensor)",
+          "open_contact_sensor_entity_id": "Open contact sensor (binary_sensor)",
           "send_stop_at_ends": "Send 'stop' at 0% / 100%",
           "always_confident": "Assume position is always correct",
           "smart_stop_midrange": "Auto stop between 20–80%",
           "aliases": "Aliases"
         }
       }
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Options — Cover Time Based Sync",
-        "description": "Adjust times, scripts and behavior.",
-        "data": {
-          "travelling_time_up": "Travel time up (s)",
-          "travelling_time_down": "Travel time down (s)",
-          "open_script_entity_id": "Open script",
-          "close_script_entity_id": "Close script",
-          "stop_script_entity_id": "Stop script",
-          "send_stop_at_ends": "Send 'stop' at 0% / 100%",
-          "always_confident": "Assume position is always correct",
-          "smart_stop_midrange": "Auto stop between 20–80%",
-          "aliases": "Aliases"
-        },
-        "data_description": {
-          "travelling_time_up": "Seconds to fully open.",
-          "travelling_time_down": "Seconds to fully close.",
-          "open_script_entity_id": "Script that triggers opening.",
-          "close_script_entity_id": "Script that triggers closing.",
-          "stop_script_entity_id": "Script that stops motion.",
-          "send_stop_at_ends": "Sends 'stop' when reaching the ends.",
-          "always_confident": "Keeps confidence in position without feedback.",
-          "smart_stop_midrange": "Sends 'stop' when reaching mid targets.",
-          "aliases": "Comma-separated alternative names."
+    },
+    "options": {
+      "step": {
+        "init": {
+          "title": "Options — Cover Time Based Sync",
+          "description": "Adjust times, scripts, sensors and behavior.",
+          "data": {
+            "travelling_time_up": "Travel time up (s)",
+            "travelling_time_down": "Travel time down (s)",
+            "open_script_entity_id": "Open script",
+            "close_script_entity_id": "Close script",
+            "stop_script_entity_id": "Stop script",
+            "close_contact_sensor_entity_id": "Closed contact sensor (binary_sensor)",
+            "open_contact_sensor_entity_id": "Open contact sensor (binary_sensor)",
+            "send_stop_at_ends": "Send 'stop' at 0% / 100%",
+            "always_confident": "Assume position is always correct",
+            "smart_stop_midrange": "Auto stop between 20–80%",
+            "aliases": "Aliases"
+          },
+          "data_description": {
+            "travelling_time_up": "Seconds to fully open.",
+            "travelling_time_down": "Seconds to fully close.",
+            "open_script_entity_id": "Script that triggers opening.",
+            "close_script_entity_id": "Script that triggers closing.",
+            "stop_script_entity_id": "Script that stops motion.",
+            "close_contact_sensor_entity_id": "Binary sensor that indicates fully closed when ON (position → 0% and becomes CONFIRMED).",
+            "open_contact_sensor_entity_id": "Binary sensor that indicates fully open when ON (position → 100% and becomes CONFIRMED).",
+            "send_stop_at_ends": "Sends 'stop' when reaching the ends.",
+            "always_confident": "Keeps confidence in position without feedback.",
+            "smart_stop_midrange": "Sends 'stop' when reaching mid targets.",
+            "aliases": "Comma-separated alternative names."
+          }
         }
       }
     }
