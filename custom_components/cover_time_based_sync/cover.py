@@ -260,13 +260,20 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     @property
     def supported_features(self) -> int:
         base = CoverEntityFeature.SET_POSITION  # slider sempre disponível
+
+        # Sempre disponibilizar STOP quando há movimento (requisito 2)
+        moving_stop = CoverEntityFeature.STOP if self._moving_direction else 0
+
         if not self._single_control_enabled:
             return base | CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE | CoverEntityFeature.STOP
+
+        # Em modo single, ação válida + STOP se estiver a mover
         next_act = self._single_next_action
         if next_act == NEXT_OPEN:
-            return base | CoverEntityFeature.OPEN
+            return base | CoverEntityFeature.OPEN | moving_stop
         if next_act == NEXT_CLOSE:
-            return base | CoverEntityFeature.CLOSE
+            return base | CoverEntityFeature.CLOSE | moving_stop
+        # NEXT_STOP (ou outros) — STOP + slider; se estiver a mover, STOP já está incluído
         return base | CoverEntityFeature.STOP
 
     # ------------------ Helpers Controlo Único ------------------
@@ -298,14 +305,13 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         moving = opening or closing
 
         if target_action == NEXT_STOP:
-            if moving:
-                await self._single_pulses(1)
-                await self._set_next_action(NEXT_CLOSE if opening else NEXT_OPEN)
+            # STOP explícito deve SEMPRE enviar pulso (requisito 1 + 2)
+            await self._single_pulses(1)
+            await self._set_next_action(NEXT_CLOSE if opening else NEXT_OPEN)
             return
 
         if target_action == NEXT_OPEN:
-            if opening:
-                return
+            # Requisito 1: ao mandar 'abrir', enviar pulso SEMPRE
             if closing:
                 await self._single_pulses(2)  # parar + abrir
             else:
@@ -314,8 +320,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             return
 
         if target_action == NEXT_CLOSE:
-            if closing:
-                return
+            # Requisito 1: ao mandar 'fechar', enviar pulso SEMPRE
             if opening:
                 await self._single_pulses(2)  # parar + fechar
             else:
@@ -326,7 +331,8 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     # ------------------ Execução de scripts ------------------
     async def _run_script(self, entity_id: Optional[str]) -> None:
         if self._single_control_enabled:
-            await self._single_pulse()
+            # Em modo single, centralizamos a lógica nos métodos _ensure_action_single / _single_pulse
+            # Este método é usado apenas no modo normal.
             return
         if not entity_id:
             return
@@ -355,19 +361,29 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
 
     # ------------------ Movimento ------------------
     async def async_open_cover(self, **kwargs: Any) -> None:
-        await self._move_to_target(100, drive_scripts=True)
+        # Requisito 1: ao receber comando explícito, garantir envio do script RF
+        if self._single_control_enabled:
+            await self._ensure_action_single(NEXT_OPEN)
+        await self._move_to_target(100, drive_scripts=not self._single_control_enabled)
 
     async def async_close_cover(self, **kwargs: Any) -> None:
-        await self._move_to_target(0, drive_scripts=True)
+        if self._single_control_enabled:
+            await self._ensure_action_single(NEXT_CLOSE)
+        await self._move_to_target(0, drive_scripts=not self._single_control_enabled)
 
     async def async_set_cover_position(self, **kwargs: Any) -> None:
         target = kwargs.get(ATTR_POSITION)
         if target is None:
             return
         target = max(0, min(100, int(target)))
-        await self._move_to_target(target, drive_scripts=True)
+        # Em RF, o slider é considerado comando explícito → enviar lógica RF primeiro?
+        # Optamos por apenas mover sem script, para evitar toggles indesejados. O STOP a meio envia script.
+        await self._move_to_target(target, drive_scripts=not self._single_control_enabled)
 
     async def async_stop_cover(self, **kwargs: Any) -> None:
+        # Requisito 1: STOP explícito envia pulso RF (mesmo se já em movimento virtual)
+        if self._single_control_enabled:
+            await self._ensure_action_single(NEXT_STOP)
         await self._stop_motion()
 
     async def _stop_motion(self) -> None:
@@ -379,7 +395,9 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             self._calc.stop()
             self._position = int(round(self._calc.current_position()))
 
-        await self._start_stop()
+        # No modo normal, STOP chama script aqui; no RF já foi chamado acima
+        if not self._single_control_enabled:
+            await self._start_stop()
         self.async_write_ha_state()
 
     async def _move_to_target_virtual(self, target: int) -> None:
@@ -527,10 +545,8 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             if self._single_control_enabled and self._position in (0, 100):
                 asyncio.create_task(self._set_next_action(NEXT_OPEN if self._position == 0 else NEXT_CLOSE))
             self.async_write_ha_state()
-            _LOGGER.debug("%s: posição atual definida para %s%% (confident=%s)", self.entity_id, pos_int, confident)
         else:
-            self.hass.async_create_task(self._move_to_target(pos_int, drive_scripts=True))
-            _LOGGER.debug("%s: alvo de posição definido para %s%% (confident=%s)", self.entity_id, pos_int, confident)
+            self.hass.async_create_task(self._move_to_target(pos_int, drive_scripts=not self._single_control_enabled))
 
     def _dispatcher_set_known_action(
         self,
@@ -568,7 +584,10 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         self._last_confident_state = True
 
         if self._send_stop_at_ends and forced_position in (0, 100):
-            await self._start_stop()
+            # No modo RF, o STOP explícito já é tratado quando é emitido pelo utilizador;
+            # aqui só enviamos STOP (modo normal).
+            if not self._single_control_enabled:
+                await self._start_stop()
 
         if self._single_control_enabled and forced_position in (0, 100):
             await self._set_next_action(NEXT_OPEN if forced_position == 0 else NEXT_CLOSE)
