@@ -56,6 +56,9 @@
         }
       }
     },
+    "error": {
+      "single_control_requires_script": "O Controlo Único requer pelo menos um script."
+    },
     "options": {
       "step": {
         "init": {
