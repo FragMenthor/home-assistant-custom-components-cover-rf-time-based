@@ -1,4 +1,3 @@
-
 {
   "config": {
     "step": {
@@ -12,12 +11,12 @@
       },
       "single": {
         "title": "Single Control Setup",
-        "description": "Configure with a single script.",
+        "description": "Configure with a single RF script (button press).",
         "data": {
           "name": "Name",
           "travelling_time_up": "Travel time up (s)",
           "travelling_time_down": "Travel time down (s)",
-          "open_script_entity_id": "Single control script",
+          "open_script_entity_id": "RF pulse script",
           "close_contact_sensor_entity_id": "Closed contact sensor (binary_sensor)",
           "open_contact_sensor_entity_id": "Open contact sensor (binary_sensor)",
           "send_stop_at_ends": "Send 'stop' at 0% / 100%",
@@ -46,7 +45,10 @@
       },
       "reconfigure": {
         "title": "Reconfigure Cover Time Based Sync",
-        "description": "Update fields according to the selected mode."
+        "description": "Update fields according to the selected mode.",
+        "data": {
+          "open_script_entity_id": "RF pulse script"
+        }
       }
     },
     "options": {
