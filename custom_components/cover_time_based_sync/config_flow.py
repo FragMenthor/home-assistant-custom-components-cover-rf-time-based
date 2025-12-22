@@ -1,4 +1,3 @@
-
 # custom_components/cover_time_based_sync/config_flow.py
 """Config flow para Cover Time Based Sync."""
 from __future__ import annotations
