@@ -1,9 +1,34 @@
+
 {
   "config": {
     "step": {
       "user": {
         "title": "Cover Time Based Sync",
-        "description": "Initial configuration for time-based cover.",
+        "description": "Choose the mode first.",
+        "data": {
+          "single_control_enabled": "Enable Single Control (one RF button)",
+          "single_control_pulse_delay_ms": "Pulse delay between presses (ms)"
+        }
+      },
+      "single": {
+        "title": "Single Control Setup",
+        "description": "Configure with a single script.",
+        "data": {
+          "name": "Name",
+          "travelling_time_up": "Travel time up (s)",
+          "travelling_time_down": "Travel time down (s)",
+          "open_script_entity_id": "Single control script",
+          "close_contact_sensor_entity_id": "Closed contact sensor (binary_sensor)",
+          "open_contact_sensor_entity_id": "Open contact sensor (binary_sensor)",
+          "send_stop_at_ends": "Send 'stop' at 0% / 100%",
+          "always_confident": "Assume position is always correct",
+          "smart_stop_midrange": "Auto stop between 20–80%",
+          "aliases": "Aliases"
+        }
+      },
+      "multi": {
+        "title": "Standard Setup",
+        "description": "Configure with up to three scripts.",
         "data": {
           "name": "Name",
           "travelling_time_up": "Travel time up (s)",
@@ -13,89 +38,27 @@
           "stop_script_entity_id": "Stop script",
           "close_contact_sensor_entity_id": "Closed contact sensor (binary_sensor)",
           "open_contact_sensor_entity_id": "Open contact sensor (binary_sensor)",
-          "single_control_enabled": "Enable Single Control (one RF button)",
-          "single_control_pulse_delay_ms": "Pulse delay between presses (ms)",
           "send_stop_at_ends": "Send 'stop' at 0% / 100%",
           "always_confident": "Assume position is always correct",
           "smart_stop_midrange": "Auto stop between 20–80%",
           "aliases": "Aliases"
-        },
-        "data_description": {
-          "travelling_time_up": "Seconds to fully open.",
-          "travelling_time_down": "Seconds to fully close.",
-          "open_script_entity_id": "Script that triggers opening.",
-          "close_script_entity_id": "Script that triggers closing.",
-          "stop_script_entity_id": "Script that stops motion.",
-          "close_contact_sensor_entity_id": "Binary sensor indicating fully closed when ON (position → 0% and becomes CONFIRMED).",
-          "open_contact_sensor_entity_id": "Binary sensor indicating fully open when ON (position → 100% and becomes CONFIRMED).",
-          "single_control_enabled": "Use a single button RF logic: open→stop→close→stop…; only the FIRST provided script is used.",
-          "single_control_pulse_delay_ms": "Delay between consecutive pulses, used when toggling stop then reverse.",
-          "send_stop_at_ends": "Sends 'stop' when reaching the ends.",
-          "always_confident": "Keeps confidence in position without feedback.",
-          "smart_stop_midrange": "Sends 'stop' when reaching mid targets.",
-          "aliases": "Comma-separated alternative names."
         }
       },
       "reconfigure": {
         "title": "Reconfigure Cover Time Based Sync",
-        "description": "Update required fields (times, scripts and sensors).",
-        "data": {
-          "travelling_time_up": "Travel time up (s)",
-          "travelling_time_down": "Travel time down (s)",
-          "open_script_entity_id": "Open script",
-          "close_script_entity_id": "Close script",
-          "stop_script_entity_id": "Stop script",
-          "close_contact_sensor_entity_id": "Closed contact sensor (binary_sensor)",
-          "open_contact_sensor_entity_id": "Open contact sensor (binary_sensor)",
-          "single_control_enabled": "Enable Single Control (one RF button)",
-          "single_control_pulse_delay_ms": "Pulse delay between presses (ms)",
-          "send_stop_at_ends": "Send 'stop' at 0% / 100%",
-          "always_confident": "Assume position is always correct",
-          "smart_stop_midrange": "Auto stop between 20–80%",
-          "aliases": "Aliases"
-        }
+        "description": "Update fields according to the selected mode."
       }
-    },
-    "error": {
-      "single_control_requires_script": "Single Control requires at least one script entity."
     },
     "options": {
       "step": {
         "init": {
           "title": "Options — Cover Time Based Sync",
-          "description": "Adjust times, scripts, sensors and behavior.",
-          "data": {
-            "travelling_time_up": "Travel time up (s)",
-            "travelling_time_down": "Travel time down (s)",
-            "open_script_entity_id": "Open script",
-            "close_script_entity_id": "Close script",
-            "stop_script_entity_id": "Stop script",
-            "close_contact_sensor_entity_id": "Closed contact sensor (binary_sensor)",
-            "open_contact_sensor_entity_id": "Open contact sensor (binary_sensor)",
-            "single_control_enabled": "Enable Single Control (one RF button)",
-            "single_control_pulse_delay_ms": "Pulse delay between presses (ms)",
-            "send_stop_at_ends": "Send 'stop' at 0% / 100%",
-            "always_confident": "Assume position is always correct",
-            "smart_stop_midrange": "Auto stop between 20–80%",
-            "aliases": "Aliases"
-          },
-          "data_description": {
-            "travelling_time_up": "Seconds to fully open.",
-            "travelling_time_down": "Seconds to fully close.",
-            "open_script_entity_id": "Script that triggers opening.",
-            "close_script_entity_id": "Script that triggers closing.",
-            "stop_script_entity_id": "Script that stops motion.",
-            "close_contact_sensor_entity_id": "Binary sensor indicating fully closed when ON (position → 0% and becomes CONFIRMED).",
-            "open_contact_sensor_entity_id": "Binary sensor indicating fully open when ON (position → 100% and becomes CONFIRMED).",
-            "single_control_enabled": "Use a single button RF logic: open→stop→close→stop…; only the FIRST provided script is used.",
-            "single_control_pulse_delay_ms": "Delay between consecutive pulses, used when toggling stop then reverse.",
-            "send_stop_at_ends": "Sends 'stop' when reaching the ends.",
-            "always_confident": "Keeps confidence in position without feedback.",
-            "smart_stop_midrange": "Sends 'stop' when reaching mid targets.",
-            "aliases": "Comma-separated alternative names."
-          }
+          "description": "Adjust based on your mode."
         }
       }
+    },
+    "error": {
+      "single_control_requires_script": "Single Control requires at least one script entity."
     }
   }
 }
