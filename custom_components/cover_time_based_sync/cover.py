@@ -1,7 +1,5 @@
-# custom_components/cover_time_based_sync/cover.py
-"""Cover Time Based Sync — entidade Cover baseada em tempo, com scripts e
-sensores de contacto. Suporta modo 'Controlo Único' (RF) com um só comando."""
-
+"""Cover Time Based Sync — entidade Cover baseada em tempo, com scripts,
+sensores de contacto e modo 'Controlo Único' (RF) nativo com próxima ação em atributo."""
 from __future__ import annotations
 
 import asyncio
@@ -38,7 +36,6 @@ from .const import (
     CONF_CLOSE_CONTACT_SENSOR,
     # Controlo Único
     CONF_SINGLE_CONTROL_ENABLED,
-    CONF_SINGLE_CONTROL_INPUT_SELECT,
     CONF_SINGLE_CONTROL_PULSE_MS,
     # atributos (serviços)
     ATTR_CONFIDENT,
@@ -127,10 +124,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         self._single_control_enabled: bool = False
         self._single_control_script_id: Optional[str] = None
         self._single_pulse_delay_ms: int = 400
-        self._single_next_action: str = NEXT_OPEN  # valor inicial; será adaptado
-
-        # input_select opcional para sincronizar próxima ação
-        self._single_next_action_input_select: Optional[str] = None
+        self._single_next_action: str = NEXT_OPEN  # será ajustado em runtime
 
         self.apply_entry(entry)
 
@@ -172,7 +166,6 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         self._single_control_enabled = bool(self._opt_or_data(CONF_SINGLE_CONTROL_ENABLED, False))
         self._single_control_script_id = self._first_script() if self._single_control_enabled else None
         self._single_pulse_delay_ms = int(self._opt_or_data(CONF_SINGLE_CONTROL_PULSE_MS, 400))
-        self._single_next_action_input_select = self._opt_or_data(CONF_SINGLE_CONTROL_INPUT_SELECT, None)
 
         # recalc
         if self._calc is None:
@@ -184,7 +177,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         _LOGGER.debug(
             "Applied settings: up=%s, down=%s, open=%s, close=%s, stop=%s, "
             "stop_at_ends=%s, confident=%s, midrange=%s, close_contact=%s, open_contact=%s, "
-            "single=%s, single_script=%s, single_delay_ms=%s, next_select=%s",
+            "single=%s, single_script=%s, single_delay_ms=%s",
             self._travel_up,
             self._travel_down,
             self._open_script_id,
@@ -198,7 +191,6 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             self._single_control_enabled,
             self._single_control_script_id,
             self._single_pulse_delay_ms,
-            self._single_next_action_input_select,
         )
 
     async def async_added_to_hass(self) -> None:
@@ -215,6 +207,9 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         if self._calc is None:
             self._calc = TravelCalculator(self._travel_down, self._travel_up)
         self._calc.set_position(float(self._position))
+
+        # Ajusta próxima ação ao arrancar:
+        await self._set_next_action(NEXT_OPEN if self._position == 0 else (NEXT_CLOSE if self._position == 100 else NEXT_STOP))
 
         self.async_write_ha_state()
 
@@ -277,8 +272,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             return
         try:
             await self.hass.services.async_call(
-                domain="script",
-                service="turn_on",
+                domain="script", service="turn_on",
                 service_data={"entity_id": self._single_control_script_id},
                 blocking=False,
             )
@@ -292,29 +286,17 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             await asyncio.sleep(max(0.05, self._single_pulse_delay_ms / 1000.0))
 
     async def _set_next_action(self, next_action: str) -> None:
-        """Atualiza próxima ação prevista + opcionalmente sincroniza input_select."""
+        """Atualiza próxima ação prevista e escreve estado."""
         self._single_next_action = next_action
-        if self._single_next_action_input_select:
-            try:
-                # Traduz valores para PT se estiveres a usar input_select com texto PT
-                mapping = {NEXT_OPEN: "Abrir", NEXT_CLOSE: "Fechar", NEXT_STOP: "Parar"}
-                await self.hass.services.async_call(
-                    "input_select",
-                    "select_option",
-                    {"entity_id": self._single_next_action_input_select, "option": mapping.get(next_action, next_action)},
-                    blocking=False,
-                )
-            except Exception as exc:  # noqa: BLE001
-                _LOGGER.debug("Falha ao sincronizar input_select (%s): %s", self._single_next_action_input_select, exc)
+        self.async_write_ha_state()
 
     async def _ensure_action_single(self, target_action: str) -> None:
         """
-        Garante a ação pedida em modo 'Controlo Único' com base no estado atual:
-        - Se já está a executar a ação (abrir/fechar), não faz nada.
-        - Para inverter direção: STOP (1 pulso) + START oposto (1 pulso).
+        Garante a ação pedida em modo 'Controlo Único':
+        - Se já está na direção pedida, não faz nada.
+        - Para inverter: STOP (1 pulso) + START oposto (1 pulso).
         - Para iniciar parado: START (1 pulso).
         """
-        # estado atual
         opening = self.is_opening
         closing = self.is_closing
         moving = opening or closing
@@ -327,25 +309,21 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
 
         if target_action == NEXT_OPEN:
             if opening:
-                return  # já a abrir
+                return
             if closing:
-                # parar e depois abrir
-                await self._single_pulses(2)
+                await self._single_pulses(2)  # parar + abrir
             else:
-                # parado → abrir
-                await self._single_pulses(1)
+                await self._single_pulses(1)  # abrir
             await self._set_next_action(NEXT_STOP)
             return
 
         if target_action == NEXT_CLOSE:
             if closing:
-                return  # já a fechar
+                return
             if opening:
-                # parar e depois fechar
-                await self._single_pulses(2)
+                await self._single_pulses(2)  # parar + fechar
             else:
-                # parado → fechar
-                await self._single_pulses(1)
+                await self._single_pulses(1)  # fechar
             await self._set_next_action(NEXT_STOP)
             return
 
@@ -400,8 +378,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             self._calc.stop()
             self._position = int(round(self._calc.current_position()))
 
-        # STOP do utilizador
-        await self._start_stop()
+        await self._start_stop()  # STOP do utilizador
         self.async_write_ha_state()
 
     async def _move_to_target(self, target: int) -> None:
@@ -451,8 +428,8 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
                     if self._position in (0, 100):
                         if self._send_stop_at_ends:
                             await self._start_stop()
-                        # Próxima ação após extremos (espelha automação que definia "Abrir"/"Fechar")
-                        await self._set_next_action(NEXT_OPEN if self._position == 0 else NEXT_CLOSE)  # [1](https://evorahotelsa-my.sharepoint.com/personal/pedroroque_evorahotel_pt/Documents/Ficheiros%20de%20Chat%20do%20Microsoft%20Copilot/controlo_portao.yaml)
+                        # Próxima ação após extremos: Abrir se 0%, Fechar se 100%
+                        await self._set_next_action(NEXT_OPEN if self._position == 0 else NEXT_CLOSE)
                         self._calc.stop()
                         break
 
@@ -492,7 +469,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             "always_confident": self._always_confident,
             "smart_stop_midrange": self._smart_stop_midrange,
             "current_position": self._position,
-            # Controlo Único
+            # Controlo Único (nativo)
             "single_control_enabled": self._single_control_enabled,
             "single_control_script_entity_id": self._single_control_script_id,
             "single_control_pulse_delay_ms": self._single_pulse_delay_ms,
@@ -508,9 +485,6 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
 
         if self._last_confident_state is not None:
             attrs["position_confident"] = self._last_confident_state
-
-        if self._single_next_action_input_select:
-            attrs["single_control_next_action_input_select"] = self._single_next_action_input_select
 
         return attrs
 
@@ -550,9 +524,9 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         if position_type == "current":
             self._calc.set_position(float(pos_int))
             self._position = int(round(self._calc.current_position()))
-            # Atualiza próxima ação pelos extremos
+            # Ajusta próxima ação pelos extremos
             if self._single_control_enabled and self._position in (0, 100):
-                asyncio.create_task(self._set_next_action(NEXT_OPEN if self._position == 0 else NEXT_CLOSE))  # [1](https://evorahotelsa-my.sharepoint.com/personal/pedroroque_evorahotel_pt/Documents/Ficheiros%20de%20Chat%20do%20Microsoft%20Copilot/controlo_portao.yaml)
+                asyncio.create_task(self._set_next_action(NEXT_OPEN if self._position == 0 else NEXT_CLOSE))
             self.async_write_ha_state()
             _LOGGER.debug("%s: posição atual definida para %s%% (confident=%s)", self.entity_id, pos_int, confident)
         else:
@@ -582,7 +556,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
 
     # ------------------ Sensores binários ------------------
     async def _apply_contact_hit(self, forced_position: int, *, source_entity: Optional[str] = None) -> None:
-        """Contacto: torna posição CONFIRMED, cancela movimento e respeita opções; ajusta próxima ação."""
+        """Contacto: posição CONFIRMED, cancela movimento e respeita opções; ajusta próxima ação."""
         if self._moving_task:
             self._moving_task.cancel(); self._moving_task = None
         self._moving_direction = None
@@ -597,9 +571,9 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         if self._send_stop_at_ends and forced_position in (0, 100):
             await self._start_stop()
 
-        # Próxima ação após extremos: Abrir se 0%, Fechar se 100% (igual à tua automação)
+        # Próxima ação após extremos: Abrir se 0%, Fechar se 100%
         if self._single_control_enabled and forced_position in (0, 100):
-            await self._set_next_action(NEXT_OPEN if forced_position == 0 else NEXT_CLOSE)  # [1](https://evorahotelsa-my.sharepoint.com/personal/pedroroque_evorahotel_pt/Documents/Ficheiros%20de%20Chat%20do%20Microsoft%20Copilot/controlo_portao.yaml)
+            await self._set_next_action(NEXT_OPEN if forced_position == 0 else NEXT_CLOSE)
 
         _LOGGER.debug("%s: contacto '%s' -> posição conhecida = %s%%", self.entity_id, source_entity or "-", forced_position)
         self.async_write_ha_state()
