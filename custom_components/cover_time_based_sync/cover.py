@@ -1,6 +1,9 @@
+
 # custom_components/cover_time_based_sync/cover.py
 """Cover Time Based Sync — entidade Cover baseada em tempo, com scripts de abrir/fechar/parar,
-sincronização por cálculo temporal (TravelCalculator) e integração com dispatcher para serviços conhecidos."""
+sincronização por cálculo temporal (TravelCalculator), integração com dispatcher e
+sensores binários opcionais de contacto para tornar a posição 'conhecida'."""
+
 from __future__ import annotations
 
 import asyncio
@@ -13,6 +16,7 @@ from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.helpers.event import async_track_state_change_event
 
 from homeassistant.components.cover import (
     CoverEntity,
@@ -32,6 +36,10 @@ from .const import (
     CONF_SMART_STOP,
     CONF_ALIASES,
     CONF_NAME as CONF_FRIENDLY_NAME,
+    # novos:
+    CONF_OPEN_CONTACT_SENSOR,
+    CONF_CLOSE_CONTACT_SENSOR,
+    # atributos (para serviços)
     ATTR_CONFIDENT,
     ATTR_POSITION_TYPE,
 )
@@ -101,7 +109,15 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         self._unsub_known_position = None
         self._unsub_known_action = None
 
+        # novos: unsubs dos sensores de contacto
+        self._unsub_close_contact = None
+        self._unsub_open_contact = None
+
         self._calc: Optional[TravelCalculator] = None
+
+        # ids dos sensores (opcionais)
+        self._close_contact_sensor_id: Optional[str] = None
+        self._open_contact_sensor_id: Optional[str] = None
 
         self.apply_entry(entry)
 
@@ -129,11 +145,20 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         self._always_confident: bool = bool(self._opt_or_data(CONF_ALWAYS_CONFIDENT, False))
         self._smart_stop_midrange: bool = bool(self._opt_or_data(CONF_SMART_STOP, False))
 
-        self._calc = TravelCalculator(self._travel_down, self._travel_up)
+        # novos: sensores binários
+        self._close_contact_sensor_id = self._opt_or_data(CONF_CLOSE_CONTACT_SENSOR, None)
+        self._open_contact_sensor_id = self._opt_or_data(CONF_OPEN_CONTACT_SENSOR, None)
+
+        # recalc
+        if self._calc is None:
+            self._calc = TravelCalculator(self._travel_down, self._travel_up)
+        self._calc.travel_time_down = self._travel_down
+        self._calc.travel_time_up = self._travel_up
         self._calc.set_position(float(self._position))
 
         _LOGGER.debug(
-            "Applied entry settings: up=%s, down=%s, open=%s, close=%s, stop=%s, stop_at_ends=%s, confident=%s, midrange=%s",
+            "Applied entry settings: up=%s, down=%s, open=%s, close=%s, stop=%s, "
+            "stop_at_ends=%s, confident=%s, midrange=%s, close_contact=%s, open_contact=%s",
             self._travel_up,
             self._travel_down,
             self._open_script_id,
@@ -142,10 +167,13 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             self._send_stop_at_ends,
             self._always_confident,
             self._smart_stop_midrange,
+            self._close_contact_sensor_id,
+            self._open_contact_sensor_id,
         )
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
+
         last_state = await self.async_get_last_state()
         if last_state and (pos := last_state.attributes.get("current_position")) is not None:
             try:
@@ -157,14 +185,34 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         if self._calc is None:
             self._calc = TravelCalculator(self._travel_down, self._travel_up)
         self._calc.set_position(float(self._position))
+
         self.async_write_ha_state()
 
+        # Dispatcher signals (serviços)
         self._unsub_known_position = async_dispatcher_connect(
             self.hass, SIGNAL_SET_KNOWN_POSITION, self._dispatcher_set_known_position
         )
         self._unsub_known_action = async_dispatcher_connect(
             self.hass, SIGNAL_SET_KNOWN_ACTION, self._dispatcher_set_known_action
         )
+
+        # -------- Sensores binários de contacto (opcionais) ----------
+        # Regista listeners e faz avaliação inicial
+        if self._close_contact_sensor_id:
+            self._unsub_close_contact = async_track_state_change_event(
+                self.hass, [self._close_contact_sensor_id], self._closed_contact_state_changed
+            )
+            st = self.hass.states.get(self._close_contact_sensor_id)
+            if st and str(st.state).lower() == "on":
+                await self._apply_contact_hit(0, source_entity=self._close_contact_sensor_id)
+
+        if self._open_contact_sensor_id:
+            self._unsub_open_contact = async_track_state_change_event(
+                self.hass, [self._open_contact_sensor_id], self._open_contact_state_changed
+            )
+            st = self.hass.states.get(self._open_contact_sensor_id)
+            if st and str(st.state).lower() == "on":
+                await self._apply_contact_hit(100, source_entity=self._open_contact_sensor_id)
 
     async def async_will_remove_from_hass(self) -> None:
         if self._unsub_known_position:
@@ -174,6 +222,15 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             self._unsub_known_action()
             self._unsub_known_action = None
 
+        # novos: remove listeners dos sensores
+        if self._unsub_close_contact:
+            self._unsub_close_contact()
+            self._unsub_close_contact = None
+        if self._unsub_open_contact:
+            self._unsub_open_contact()
+            self._unsub_open_contact = None
+
+    # ------------------ Propriedades ------------------
     @property
     def current_cover_position(self) -> int | None:
         return self._position
@@ -190,6 +247,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     def is_closed(self) -> bool:
         return self._position == 0
 
+    # ------------------ Scripts ------------------
     async def _run_script(self, entity_id: Optional[str]) -> None:
         if not entity_id:
             return
@@ -212,6 +270,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     async def _start_stop(self) -> None:
         await self._run_script(self._stop_script_id)
 
+    # ------------------ Comandos Cover ------------------
     async def async_open_cover(self, **kwargs: Any) -> None:
         await self._move_to_target(100)
 
@@ -233,9 +292,11 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             self._moving_task.cancel()
             self._moving_task = None
         self._moving_direction = None
+
         if self._calc:
             self._calc.stop()
             self._position = int(round(self._calc.current_position()))
+
         # STOP explícito do utilizador → chama SEMPRE o script de stop
         await self._start_stop()
         self.async_write_ha_state()
@@ -245,21 +306,19 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             self._moving_task.cancel()
             self._moving_task = None
 
-        # --- NOVO: se o alvo já é a posição atual, não chamar stop
-        # indiscriminadamente. Respeitar as opções.
+        # Se o alvo já é a posição atual, respeitar opções para STOP
         if target == self._position:
             if target in (0, 100):
-                # Extremo: só chama stop se send_stop_at_ends estiver ativo
                 if self._send_stop_at_ends:
                     await self._start_stop()
             else:
-                # Intermédio: só chama stop se smart_stop_midrange estiver ativo
                 if self._smart_stop_midrange:
                     await self._start_stop()
             return
 
         direction = "up" if target > self._position else "down"
         self._moving_direction = direction
+
         if direction == "up":
             await self._start_open()
         else:
@@ -267,7 +326,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
 
         if self._calc is None:
             self._calc = TravelCalculator(self._travel_down, self._travel_up)
-            self._calc.set_position(float(self._position))
+        self._calc.set_position(float(self._position))
         self._calc.start_travel(float(target))
 
         self.async_write_ha_state()
@@ -283,11 +342,10 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
                         current = min(current, target)
                     else:
                         current = max(current, target)
-
                     self._position = current
                     self.async_write_ha_state()
 
-                    # ---------- Paragens automáticas ----------
+                    # ----- Paragens automáticas -----
                     # 1) Extremos (0/100): só chama stop se 'send_stop_at_ends' estiver ativo
                     if self._position in (0, 100):
                         if self._send_stop_at_ends:
@@ -301,12 +359,10 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
                         self._calc.stop()
                         break
 
-                    # 3) Alvo intermédio com 'smart_stop_midrange' DESATIVADO → NÃO chama stop
+                    # 3) Alvo intermédio com 'smart_stop_midrange' DESATIVADO → não chama stop
                     if self._position == target:
-                        # Apenas termina movimento e sincroniza estado; sem stop explícito.
                         self._calc.stop()
                         break
-
             except asyncio.CancelledError:
                 pass
             finally:
@@ -317,6 +373,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
 
         self._moving_task = asyncio.create_task(_run_move())
 
+    # ------------------ Atributos Extra ------------------
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         attrs: dict[str, Any] = {
@@ -328,16 +385,26 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             "smart_stop_midrange": self._smart_stop_midrange,
             "current_position": self._position,
         }
+
         if self._open_script_id:
             attrs["open_script_entity_id"] = self._open_script_id
         if self._close_script_id:
             attrs["close_script_entity_id"] = self._close_script_id
         if self._stop_script_id:
             attrs["stop_script_entity_id"] = self._stop_script_id
+
+        # sensores binários de contacto
+        if self._close_contact_sensor_id:
+            attrs["close_contact_sensor_entity_id"] = self._close_contact_sensor_id
+        if self._open_contact_sensor_id:
+            attrs["open_contact_sensor_entity_id"] = self._open_contact_sensor_id
+
         if self._last_confident_state is not None:
             attrs["position_confident"] = self._last_confident_state
+
         return attrs
 
+    # ------------------ Dispatcher (serviços) ------------------
     def _matches_target_entities(self, target_entities: str | list[str] | None) -> bool:
         if not target_entities:
             return True
@@ -359,7 +426,6 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         if position is None:
             _LOGGER.debug("%s: posição não fornecida — ignorar.", self.entity_id)
             return
-
         try:
             pos_int = max(0, min(100, int(round(float(position)))))
         except (TypeError, ValueError):
@@ -400,3 +466,49 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             self.hass.async_create_task(self.async_stop_cover())
         else:
             _LOGGER.debug("%s: ação desconhecida '%s' — ignorar.", self.entity_id, action)
+
+    # ------------------ Sensores binários (callbacks) ------------------
+    async def _apply_contact_hit(self, forced_position: int, *, source_entity: Optional[str] = None) -> None:
+        """Aplicar contacto: torna posição 'CONFIRMED', cancela movimento e respeita opções."""
+        # cancela movimento corrente se existir
+        if self._moving_task:
+            self._moving_task.cancel()
+            self._moving_task = None
+
+        self._moving_direction = None
+
+        if self._calc is None:
+            self._calc = TravelCalculator(self._travel_down, self._travel_up)
+
+        # posição confirmada por contacto
+        self._calc.set_position(float(forced_position))
+        self._position = forced_position
+        self._last_confident_state = True
+
+        # se estamos num extremo e opção 'stop_at_ends' estiver ativa, chama stop
+        if self._send_stop_at_ends and forced_position in (0, 100):
+            await self._start_stop()
+
+        _LOGGER.debug(
+            "%s: contacto '%s' -> posição conhecida = %s%%",
+            self.entity_id,
+            source_entity or "-",
+            forced_position,
+        )
+        self.async_write_ha_state()
+
+    async def _closed_contact_state_changed(self, event) -> None:
+        """Quando sensor de FECHO fica 'on', posição passa a 0% conhecida."""
+        new_state = event.data.get("new_state")
+        if not new_state:
+            return
+        if str(new_state.state).lower() == "on":
+            await self._apply_contact_hit(0, source_entity=self._close_contact_sensor_id)
+
+    async def _open_contact_state_changed(self, event) -> None:
+        """Quando sensor de ABERTURA fica 'on', posição passa a 100% conhecida."""
+        new_state = event.data.get("new_state")
+        if not new_state:
+            return
+        if str(new_state.state).lower() == "on":
+            await self._apply_contact_hit(100, source_entity=self._open_contact_sensor_id)
