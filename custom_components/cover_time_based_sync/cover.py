@@ -604,12 +604,12 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         ns = str(new_state.state).lower()
         os = str(old_state.state).lower() if old_state else None
 
-        if ns == "on":
+        if ns == "off":
             await self._apply_contact_hit(0, source_entity=self._close_contact_sensor_id)
             return
 
         # OFF ao sair de 0% -> abrir virtualmente
-        if ns == "off" and os == "on":
+        if ns == "on" and os == "off":
             if not self._moving_task:
                 await self._move_to_target_virtual(100)
 
