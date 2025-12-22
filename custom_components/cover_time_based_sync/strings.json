@@ -1,3 +1,4 @@
+
 {
   "config": {
     "step": {
@@ -47,7 +48,16 @@
         "title": "Reconfigure Cover Time Based Sync",
         "description": "Update fields according to the selected mode.",
         "data": {
-          "open_script_entity_id": "RF pulse script"
+          "open_script_entity_id": "RF pulse script",
+          "travelling_time_up": "Travel time up (s)",
+          "travelling_time_down": "Travel time down (s)",
+          "close_contact_sensor_entity_id": "Closed contact sensor (binary_sensor)",
+          "open_contact_sensor_entity_id": "Open contact sensor (binary_sensor)",
+          "send_stop_at_ends": "Send 'stop' at 0% / 100%",
+          "always_confident": "Assume position is always correct",
+          "smart_stop_midrange": "Auto stop between 20–80%",
+          "aliases": "Aliases",
+          "single_control_pulse_delay_ms": "Pulse delay between presses (ms)"
         }
       }
     },
@@ -55,7 +65,21 @@
       "step": {
         "init": {
           "title": "Options — Cover Time Based Sync",
-          "description": "Adjust based on your mode."
+          "description": "Adjust based on your mode.",
+          "data": {
+            "travelling_time_up": "Travel time up (s)",
+            "travelling_time_down": "Travel time down (s)",
+            "open_script_entity_id": "RF pulse script",
+            "close_script_entity_id": "Close script",
+            "stop_script_entity_id": "Stop script",
+            "close_contact_sensor_entity_id": "Closed contact sensor (binary_sensor)",
+            "open_contact_sensor_entity_id": "Open contact sensor (binary_sensor)",
+            "single_control_pulse_delay_ms": "Pulse delay between presses (ms)",
+            "send_stop_at_ends": "Send 'stop' at 0% / 100%",
+            "always_confident": "Assume position is always correct",
+            "smart_stop_midrange": "Auto stop between 20–80%",
+            "aliases": "Aliases"
+          }
         }
       }
     },
