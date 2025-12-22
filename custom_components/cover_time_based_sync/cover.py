@@ -1,3 +1,4 @@
+# custom_components/cover_time_based_sync/cover.py
 """Cover Time Based Sync — entidade Cover baseada em tempo, com scripts,
 sensores de contacto e modo 'Controlo Único' (RF) nativo com próxima ação em atributo."""
 
@@ -128,6 +129,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     def _first_script(self) -> Optional[str]:
         for key in (CONF_OPEN_SCRIPT, CONF_CLOSE_SCRIPT, CONF_STOP_SCRIPT):
             val = self._opt_or_data(key)
+        # Retorna o primeiro definido
             if isinstance(val, str) and val:
                 return val
         return None
@@ -219,7 +221,8 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
                 self.hass, [self._close_contact_sensor_id], self._closed_contact_state_changed
             )
             st = self.hass.states.get(self._close_contact_sensor_id)
-            if st and str(st.state).lower() == "on":
+            if st and str(st.state).lower() == "off":
+                # INVERTIDO: FECHADO = OFF confirma 0%
                 await self._apply_contact_hit(0, source_entity=self._close_contact_sensor_id)
 
         if self._open_contact_sensor_id:
@@ -227,7 +230,8 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
                 self.hass, [self._open_contact_sensor_id], self._open_contact_state_changed
             )
             st = self.hass.states.get(self._open_contact_sensor_id)
-            if st and str(st.state).lower() == "on":
+            if st and str(st.state).lower() == "off":
+                # INVERTIDO: ABERTO = OFF confirma 100%
                 await self._apply_contact_hit(100, source_entity=self._open_contact_sensor_id)
 
     async def async_will_remove_from_hass(self) -> None:
@@ -261,20 +265,18 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     def supported_features(self) -> int:
         base = CoverEntityFeature.SET_POSITION  # slider sempre disponível
 
-        # Sempre disponibilizar STOP quando há movimento (requisito 2)
+        # STOP sempre disponível quando há movimento
         moving_stop = CoverEntityFeature.STOP if self._moving_direction else 0
 
         if not self._single_control_enabled:
             return base | CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE | CoverEntityFeature.STOP
 
-        # Em modo single, ação válida + STOP se estiver a mover
         next_act = self._single_next_action
         if next_act == NEXT_OPEN:
             return base | CoverEntityFeature.OPEN | moving_stop
         if next_act == NEXT_CLOSE:
             return base | CoverEntityFeature.CLOSE | moving_stop
-        # NEXT_STOP (ou outros) — STOP + slider; se estiver a mover, STOP já está incluído
-        return base | CoverEntityFeature.STOP
+        return base | CoverEntityFeature.STOP  # NEXT_STOP
 
     # ------------------ Helpers Controlo Único ------------------
     async def _single_pulse(self) -> None:
@@ -302,17 +304,17 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     async def _ensure_action_single(self, target_action: str) -> None:
         opening = self.is_opening
         closing = self.is_closing
-        moving = opening or closing
 
         if target_action == NEXT_STOP:
-            # STOP explícito deve SEMPRE enviar pulso (requisito 1 + 2)
             await self._single_pulses(1)
             await self._set_next_action(NEXT_CLOSE if opening else NEXT_OPEN)
             return
 
         if target_action == NEXT_OPEN:
-            # Requisito 1: ao mandar 'abrir', enviar pulso SEMPRE
-            if closing:
+            if opening:
+                # Mesmo já a abrir, enviar pulso para garantir ordem explícita
+                await self._single_pulses(1)
+            elif closing:
                 await self._single_pulses(2)  # parar + abrir
             else:
                 await self._single_pulses(1)  # abrir
@@ -320,8 +322,9 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             return
 
         if target_action == NEXT_CLOSE:
-            # Requisito 1: ao mandar 'fechar', enviar pulso SEMPRE
-            if opening:
+            if closing:
+                await self._single_pulses(1)  # refirma ordem explícita
+            elif opening:
                 await self._single_pulses(2)  # parar + fechar
             else:
                 await self._single_pulses(1)  # fechar
@@ -331,8 +334,6 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     # ------------------ Execução de scripts ------------------
     async def _run_script(self, entity_id: Optional[str]) -> None:
         if self._single_control_enabled:
-            # Em modo single, centralizamos a lógica nos métodos _ensure_action_single / _single_pulse
-            # Este método é usado apenas no modo normal.
             return
         if not entity_id:
             return
@@ -361,7 +362,6 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
 
     # ------------------ Movimento ------------------
     async def async_open_cover(self, **kwargs: Any) -> None:
-        # Requisito 1: ao receber comando explícito, garantir envio do script RF
         if self._single_control_enabled:
             await self._ensure_action_single(NEXT_OPEN)
         await self._move_to_target(100, drive_scripts=not self._single_control_enabled)
@@ -376,12 +376,9 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         if target is None:
             return
         target = max(0, min(100, int(target)))
-        # Em RF, o slider é considerado comando explícito → enviar lógica RF primeiro?
-        # Optamos por apenas mover sem script, para evitar toggles indesejados. O STOP a meio envia script.
         await self._move_to_target(target, drive_scripts=not self._single_control_enabled)
 
     async def async_stop_cover(self, **kwargs: Any) -> None:
-        # Requisito 1: STOP explícito envia pulso RF (mesmo se já em movimento virtual)
         if self._single_control_enabled:
             await self._ensure_action_single(NEXT_STOP)
         await self._stop_motion()
@@ -395,7 +392,6 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             self._calc.stop()
             self._position = int(round(self._calc.current_position()))
 
-        # No modo normal, STOP chama script aqui; no RF já foi chamado acima
         if not self._single_control_enabled:
             await self._start_stop()
         self.async_write_ha_state()
@@ -569,9 +565,9 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         else:
             _LOGGER.debug("%s: ação desconhecida '%s' — ignorar.", self.entity_id, action)
 
-    # ------------------ Sensores binários ------------------
+    # ------------------ Sensores binários (INVERTIDOS) ------------------
     async def _apply_contact_hit(self, forced_position: int, *, source_entity: Optional[str] = None) -> None:
-        """Contacto ON: posição CONFIRMED, cancela movimento; ajusta próxima ação; opcional stop no extremo."""
+        """Contacto extremo: posição CONFIRMED, cancela movimento; ajusta próxima ação; opcional stop."""
         if self._moving_task:
             self._moving_task.cancel(); self._moving_task = None
         self._moving_direction = None
@@ -583,11 +579,8 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         self._position = forced_position
         self._last_confident_state = True
 
-        if self._send_stop_at_ends and forced_position in (0, 100):
-            # No modo RF, o STOP explícito já é tratado quando é emitido pelo utilizador;
-            # aqui só enviamos STOP (modo normal).
-            if not self._single_control_enabled:
-                await self._start_stop()
+        if self._send_stop_at_ends and forced_position in (0, 100) and not self._single_control_enabled:
+            await self._start_stop()
 
         if self._single_control_enabled and forced_position in (0, 100):
             await self._set_next_action(NEXT_OPEN if forced_position == 0 else NEXT_CLOSE)
@@ -596,6 +589,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         self.async_write_ha_state()
 
     async def _closed_contact_state_changed(self, event) -> None:
+        """Sensor FECHADO (invertido): OFF confirma 0%; transição OFF->ON inicia abrir virtual."""
         new_state = event.data.get("new_state")
         old_state = event.data.get("old_state")
         if not new_state:
@@ -604,16 +598,18 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         ns = str(new_state.state).lower()
         os = str(old_state.state).lower() if old_state else None
 
+        # OFF -> posição 0% confirmada
         if ns == "off":
             await self._apply_contact_hit(0, source_entity=self._close_contact_sensor_id)
             return
 
-        # OFF ao sair de 0% -> abrir virtualmente
+        # ON (era OFF): saiu do fim-de-curso fechado -> ABRIR virtualmente
         if ns == "on" and os == "off":
             if not self._moving_task:
                 await self._move_to_target_virtual(100)
 
     async def _open_contact_state_changed(self, event) -> None:
+        """Sensor ABERTO (invertido): OFF confirma 100%; transição OFF->ON inicia fechar virtual."""
         new_state = event.data.get("new_state")
         old_state = event.data.get("old_state")
         if not new_state:
@@ -622,11 +618,12 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         ns = str(new_state.state).lower()
         os = str(old_state.state).lower() if old_state else None
 
-        if ns == "on":
+        # OFF -> posição 100% confirmada
+        if ns == "off":
             await self._apply_contact_hit(100, source_entity=self._open_contact_sensor_id)
             return
 
-        # OFF ao sair de 100% -> fechar virtualmente
-        if ns == "off" and os == "on":
+        # ON (era OFF): saiu do fim-de-curso aberto -> FECHAR virtualmente
+        if ns == "on" and os == "off":
             if not self._moving_task:
                 await self._move_to_target_virtual(0)
