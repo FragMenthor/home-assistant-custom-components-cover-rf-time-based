@@ -1,4 +1,3 @@
-
 """Config flow para Cover Time Based Sync com modo 'Controlo Único' (RF)."""
 from __future__ import annotations
 
@@ -163,3 +162,77 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
         single = bool(entry.data.get(CONF_SINGLE_CONTROL_ENABLED, False))
         sch: Dict[Any, Any] = {
             vol.Required(CONF_TRAVELLING_TIME_UP, default=d.get(CONF_TRAVELLING_TIME_UP, DEFAULT_TRAVEL_TIME)): int,
+            vol.Required(CONF_TRAVELLING_TIME_DOWN, default=d.get(CONF_TRAVELLING_TIME_DOWN, DEFAULT_TRAVEL_TIME)): int,
+            vol.Optional(CONF_SEND_STOP_AT_ENDS, default=d.get(CONF_SEND_STOP_AT_ENDS, False)): bool,
+            vol.Optional(CONF_ALWAYS_CONFIDENT, default=d.get(CONF_ALWAYS_CONFIDENT, False)): bool,
+            vol.Optional(CONF_SMART_STOP, default=d.get(CONF_SMART_STOP, False)): bool,
+            vol.Optional(CONF_ALIASES, default=d.get(CONF_ALIASES, "")): str,
+        }
+        if single:
+            _entity_optional(sch, CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT), "script")
+            _entity_optional(sch, CONF_CLOSE_CONTACT_SENSOR, d.get(CONF_CLOSE_CONTACT_SENSOR), "binary_sensor")
+            _entity_optional(sch, CONF_OPEN_CONTACT_SENSOR, d.get(CONF_OPEN_CONTACT_SENSOR), "binary_sensor")
+            sch[vol.Optional(CONF_SINGLE_CONTROL_PULSE_MS, default=d.get(CONF_SINGLE_CONTROL_PULSE_MS, DEFAULT_PULSE_MS))] = int
+        else:
+            _entity_optional(sch, CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT), "script")
+            _entity_optional(sch, CONF_CLOSE_SCRIPT, d.get(CONF_CLOSE_SCRIPT), "script")
+            _entity_optional(sch, CONF_STOP_SCRIPT, d.get(CONF_STOP_SCRIPT), "script")
+            _entity_optional(sch, CONF_CLOSE_CONTACT_SENSOR, d.get(CONF_CLOSE_CONTACT_SENSOR), "binary_sensor")
+            _entity_optional(sch, CONF_OPEN_CONTACT_SENSOR, d.get(CONF_OPEN_CONTACT_SENSOR), "binary_sensor")
+        return vol.Schema(sch)
+
+    # ---------- Options Flow ----------
+    @staticmethod
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        """Devolve o Options Flow, recebendo o config_entry."""
+        return OptionsFlowHandler(config_entry)
+
+
+class OptionsFlowHandler(OptionsFlow):
+    """Gestão de opções com UX adaptativa por modo."""
+
+    def __init__(self, config_entry: ConfigEntry) -> None:
+        super().__init__()
+        # Guarda o config_entry para uso posterior
+        self.config_entry: ConfigEntry = config_entry
+
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        entry = self.config_entry
+        single = bool(entry.data.get(CONF_SINGLE_CONTROL_ENABLED, False))
+        data = entry.data
+        options = entry.options
+
+        if user_input is not None:
+            if single and not _first_script(user_input):
+                return self.async_show_form(
+                    step_id="init",
+                    data_schema=self._schema_options(single, options=user_input, data=data),
+                    errors={"base": "single_control_requires_script"},
+                )
+            return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(step_id="init", data_schema=self._schema_options(single, options=options, data=data))
+
+    def _schema_options(self, single: bool, options: dict[str, Any] | None = None, data: dict[str, Any] | None = None) -> vol.Schema:
+        o = options or {}
+        d = data or {}
+        sch: Dict[Any, Any] = {
+            vol.Required(CONF_TRAVELLING_TIME_UP, default=o.get(CONF_TRAVELLING_TIME_UP, d.get(CONF_TRAVELLING_TIME_UP, DEFAULT_TRAVEL_TIME))): int,
+            vol.Required(CONF_TRAVELLING_TIME_DOWN, default=o.get(CONF_TRAVELLING_TIME_DOWN, d.get(CONF_TRAVELLING_TIME_DOWN, DEFAULT_TRAVEL_TIME))): int,
+            vol.Optional(CONF_SEND_STOP_AT_ENDS, default=o.get(CONF_SEND_STOP_AT_ENDS, d.get(CONF_SEND_STOP_AT_ENDS, False))): bool,
+            vol.Optional(CONF_ALWAYS_CONFIDENT, default=o.get(CONF_ALWAYS_CONFIDENT, d.get(CONF_ALWAYS_CONFIDENT, False))): bool,
+            vol.Optional(CONF_SMART_STOP, default=o.get(CONF_SMART_STOP, d.get(CONF_SMART_STOP, False))): bool,
+            vol.Optional(CONF_ALIASES, default=o.get(CONF_ALIASES, d.get(CONF_ALIASES, ""))): str,
+        }
+        if single:
+            _entity_optional(sch, CONF_OPEN_SCRIPT, o.get(CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT)), "script")
+            _entity_optional(sch, CONF_CLOSE_CONTACT_SENSOR, o.get(CONF_CLOSE_CONTACT_SENSOR, d.get(CONF_CLOSE_CONTACT_SENSOR)), "binary_sensor")
+            _entity_optional(sch, CONF_OPEN_CONTACT_SENSOR, o.get(CONF_OPEN_CONTACT_SENSOR, d.get(CONF_OPEN_CONTACT_SENSOR)), "binary_sensor")
+            sch[vol.Optional(CONF_SINGLE_CONTROL_PULSE_MS, default=o.get(CONF_SINGLE_CONTROL_PULSE_MS, d.get(CONF_SINGLE_CONTROL_PULSE_MS, DEFAULT_PULSE_MS)))] = int
+        else:
+            _entity_optional(sch, CONF_OPEN_SCRIPT, o.get(CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT)), "script")
+            _entity_optional(sch, CONF_CLOSE_SCRIPT, o.get(CONF_CLOSE_SCRIPT, d.get(CONF_CLOSE_SCRIPT)), "script")
+            _entity_optional(sch, CONF_STOP_SCRIPT, o.get(CONF_STOP_SCRIPT, d.get(CONF_STOP_SCRIPT)), "script")
+            _entity_optional(sch, CONF_CLOSE_CONTACT_SENSOR, o.get(CONF_CLOSE_CONTACT_SENSOR, d.get(CONF_CLOSE_CONTACT_SENSOR)), "binary_sensor")
+            _entity_optional(sch, CONF_OPEN_CONTACT_SENSOR, o.get(CONF_OPEN_CONTACT_SENSOR, d.get(CONF_OPEN_CONTACT_SENSOR)), "binary_sensor")
+        return vol.Schema(sch)
