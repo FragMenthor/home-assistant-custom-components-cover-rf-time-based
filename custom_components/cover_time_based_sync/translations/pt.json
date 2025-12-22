@@ -3,74 +3,84 @@
     "step": {
       "user": {
         "title": "Cover Time Based Sync",
-        "description": "Configuração inicial da cover baseada em tempo.",
+        "description": "Configuração inicial da cobertura baseada em tempo.",
         "data": {
           "name": "Nome",
           "travelling_time_up": "Tempo de subida (s)",
           "travelling_time_down": "Tempo de descida (s)",
-          "open_script_entity_id": "Script de abrir",
-          "close_script_entity_id": "Script de fechar",
+          "open_script_entity_id": "Script de abertura",
+          "close_script_entity_id": "Script de fecho",
           "stop_script_entity_id": "Script de parar",
+          "close_contact_sensor_entity_id": "Sensor de contacto (fechado)",
+          "open_contact_sensor_entity_id": "Sensor de contacto (aberto)",
           "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
-          "always_confident": "Assumir posição sempre correta",
+          "always_confident": "Assumir sempre posição correta",
           "smart_stop_midrange": "Parar automaticamente entre 20–80%",
           "aliases": "Aliases"
         },
         "data_description": {
-          "travelling_time_up": "Segundos para abrir totalmente.",
-          "travelling_time_down": "Segundos para fechar totalmente.",
-          "open_script_entity_id": "Script que inicia a abertura.",
-          "close_script_entity_id": "Script que inicia o fecho.",
+          "travelling_time_up": "Segundos necessários para abrir totalmente.",
+          "travelling_time_down": "Segundos necessários para fechar totalmente.",
+          "open_script_entity_id": "Script que aciona a abertura.",
+          "close_script_entity_id": "Script que aciona o fecho.",
           "stop_script_entity_id": "Script que pára o movimento.",
-          "send_stop_at_ends": "Envia 'stop' ao atingir os extremos.",
-          "always_confident": "Mantém confiança na posição mesmo sem feedback.",
-          "smart_stop_midrange": "Envia 'stop' ao atingir alvos intermédios.",
-          "aliases": "Nomes alternativos (separados por vírgulas)."
+          "close_contact_sensor_entity_id": "Sensor binário que indica fecho total quando ON (posição → 0% e torna-se CONFIRMADA).",
+          "open_contact_sensor_entity_id": "Sensor binário que indica abertura total quando ON (posição → 100% e torna-se CONFIRMADA).",
+          "send_stop_at_ends": "Envia 'stop' quando a cobertura chega aos extremos.",
+          "always_confident": "Mantém a posição como 'confiável' mesmo sem feedback externo.",
+          "smart_stop_midrange": "Envia 'stop' ao atingir alvos intermédios (20–80%).",
+          "aliases": "Lista de nomes alternativos separados por vírgulas."
         }
       },
       "reconfigure": {
         "title": "Reconfigurar Cover Time Based Sync",
-        "description": "Atualiza dados obrigatórios (tempos e scripts).",
+        "description": "Atualizar tempos, scripts e sensores (campos obrigatórios).",
         "data": {
           "travelling_time_up": "Tempo de subida (s)",
           "travelling_time_down": "Tempo de descida (s)",
-          "open_script_entity_id": "Script de abrir",
-          "close_script_entity_id": "Script de fechar",
+          "open_script_entity_id": "Script de abertura",
+          "close_script_entity_id": "Script de fecho",
           "stop_script_entity_id": "Script de parar",
+          "close_contact_sensor_entity_id": "Sensor de contacto (fechado)",
+          "open_contact_sensor_entity_id": "Sensor de contacto (aberto)",
           "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
-          "always_confident": "Assumir posição sempre correta",
+          "always_confident": "Assumir sempre posição correta",
           "smart_stop_midrange": "Parar automaticamente entre 20–80%",
           "aliases": "Aliases"
         }
       }
-    }
-  },
-  "options": {
-    "step": {
-      "init": {
-        "title": "Opções — Cover Time Based Sync",
-        "description": "Ajusta tempos, scripts e comportamento.",
-        "data": {
-          "travelling_time_up": "Tempo de subida (s)",
-          "travelling_time_down": "Tempo de descida (s)",
-          "open_script_entity_id": "Script de abrir",
-          "close_script_entity_id": "Script de fechar",
-          "stop_script_entity_id": "Script de parar",
-          "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
-          "always_confident": "Assumir posição sempre correta",
-          "smart_stop_midrange": "Parar automaticamente entre 20–80%",
-          "aliases": "Aliases"
-        },
-        "data_description": {
-          "travelling_time_up": "Segundos para abrir totalmente.",
-          "travelling_time_down": "Segundos para fechar totalmente.",
-          "open_script_entity_id": "Script que inicia a abertura.",
-          "close_script_entity_id": "Script que inicia o fecho.",
-          "stop_script_entity_id": "Script que pára o movimento.",
-          "send_stop_at_ends": "Envia 'stop' ao atingir os extremos.",
-          "always_confident": "Mantém confiança na posição mesmo sem feedback.",
-          "smart_stop_midrange": "Envia 'stop' ao atingir alvos intermédios.",
-          "aliases": "Nomes alternativos (separados por vírgulas)."
+    },
+    "options": {
+      "step": {
+        "init": {
+          "title": "Opções — Cover Time Based Sync",
+          "description": "Ajuste tempos, scripts, sensores e comportamento.",
+          "data": {
+            "travelling_time_up": "Tempo de subida (s)",
+            "travelling_time_down": "Tempo de descida (s)",
+            "open_script_entity_id": "Script de abertura",
+            "close_script_entity_id": "Script de fecho",
+            "stop_script_entity_id": "Script de parar",
+            "close_contact_sensor_entity_id": "Sensor de contacto (fechado)",
+            "open_contact_sensor_entity_id": "Sensor de contacto (aberto)",
+            "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
+            "always_confident": "Assumir sempre posição correta",
+            "smart_stop_midrange": "Parar automaticamente entre 20–80%",
+            "aliases": "Aliases"
+          },
+          "data_description": {
+            "travelling_time_up": "Segundos necessários para abrir totalmente.",
+            "travelling_time_down": "Segundos necessários para fechar totalmente.",
+            "open_script_entity_id": "Script que aciona a abertura.",
+            "close_script_entity_id": "Script que aciona o fecho.",
+            "stop_script_entity_id": "Script que pára o movimento.",
+            "close_contact_sensor_entity_id": "Sensor binário que indica fecho total quando ON (posição → 0% e torna-se CONFIRMADA).",
+            "open_contact_sensor_entity_id": "Sensor binário que indica abertura total quando ON (posição → 100% e torna-se CONFIRMADA).",
+            "send_stop_at_ends": "Envia 'stop' quando a cobertura chega aos extremos.",
+            "always_confident": "Mantém a posição como 'confiável' mesmo sem feedback externo.",
+            "smart_stop_midrange": "Envia 'stop' ao atingir alvos intermédios (20–80%).",
+            "aliases": "Lista de nomes alternativos separados por vírgulas."
+          }
         }
       }
     }
