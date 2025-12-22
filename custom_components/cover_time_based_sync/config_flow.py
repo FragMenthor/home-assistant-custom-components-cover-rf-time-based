@@ -29,7 +29,6 @@ from .const import (
     CONF_CLOSE_CONTACT_SENSOR,
     # Controlo Único
     CONF_SINGLE_CONTROL_ENABLED,
-    CONF_SINGLE_CONTROL_INPUT_SELECT,
     CONF_SINGLE_CONTROL_PULSE_MS,
 )
 
@@ -57,6 +56,7 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
             # Validação mínima para Controlo Único
             if user_input.get(CONF_SINGLE_CONTROL_ENABLED):
                 if _first_script(user_input) is None:
+                    # Falta pelo menos um script; mostrar erro
                     return self.async_show_form(
                         step_id="user",
                         data_schema=self._schema_user(defaults=user_input),
@@ -95,9 +95,6 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
 
                 # Controlo Único
                 vol.Optional(CONF_SINGLE_CONTROL_ENABLED, default=d.get(CONF_SINGLE_CONTROL_ENABLED, False)): bool,
-                vol.Optional(CONF_SINGLE_CONTROL_INPUT_SELECT, default=d.get(CONF_SINGLE_CONTROL_INPUT_SELECT)): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="input_select")
-                ),
                 vol.Optional(CONF_SINGLE_CONTROL_PULSE_MS, default=d.get(CONF_SINGLE_CONTROL_PULSE_MS, DEFAULT_PULSE_MS)): int,
 
                 # Comportamentos
@@ -144,9 +141,6 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
                 ),
 
                 vol.Optional(CONF_SINGLE_CONTROL_ENABLED, default=d.get(CONF_SINGLE_CONTROL_ENABLED, False)): bool,
-                vol.Optional(CONF_SINGLE_CONTROL_INPUT_SELECT, default=d.get(CONF_SINGLE_CONTROL_INPUT_SELECT)): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="input_select")
-                ),
                 vol.Optional(CONF_SINGLE_CONTROL_PULSE_MS, default=d.get(CONF_SINGLE_CONTROL_PULSE_MS, DEFAULT_PULSE_MS)): int,
 
                 vol.Optional(CONF_SEND_STOP_AT_ENDS, default=d.get(CONF_SEND_STOP_AT_ENDS, False)): bool,
@@ -210,9 +204,6 @@ class OptionsFlowHandler(OptionsFlow):
                 ),
 
                 vol.Optional(CONF_SINGLE_CONTROL_ENABLED, default=get(CONF_SINGLE_CONTROL_ENABLED, False)): bool,
-                vol.Optional(CONF_SINGLE_CONTROL_INPUT_SELECT, default=get(CONF_SINGLE_CONTROL_INPUT_SELECT)): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain="input_select")
-                ),
                 vol.Optional(CONF_SINGLE_CONTROL_PULSE_MS, default=get(CONF_SINGLE_CONTROL_PULSE_MS, DEFAULT_PULSE_MS)): int,
 
                 vol.Optional(CONF_SEND_STOP_AT_ENDS, default=get(CONF_SEND_STOP_AT_ENDS, False)): bool,
