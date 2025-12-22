@@ -11,12 +11,12 @@
       },
       "single": {
         "title": "Configuração — Controlo Único",
-        "description": "Configure com um único script.",
+        "description": "Configure com um único script RF (pulsar).",
         "data": {
           "name": "Nome",
           "travelling_time_up": "Tempo de subida (s)",
           "travelling_time_down": "Tempo de descida (s)",
-          "open_script_entity_id": "Script de controlo único",
+          "open_script_entity_id": "Script RF (pulsar)",
           "close_contact_sensor_entity_id": "Sensor de contacto (fechado)",
           "open_contact_sensor_entity_id": "Sensor de contacto (aberto)",
           "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
@@ -45,7 +45,10 @@
       },
       "reconfigure": {
         "title": "Reconfigurar Cover Time Based Sync",
-        "description": "Atualize os campos conforme o modo selecionado."
+        "description": "Atualize os campos conforme o modo selecionado.",
+        "data": {
+          "open_script_entity_id": "Script RF (pulsar)"
+        }
       }
     },
     "options": {
