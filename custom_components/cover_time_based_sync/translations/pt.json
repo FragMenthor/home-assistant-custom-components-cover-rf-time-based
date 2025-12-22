@@ -47,7 +47,16 @@
         "title": "Reconfigurar Cover Time Based Sync",
         "description": "Atualize os campos conforme o modo selecionado.",
         "data": {
-          "open_script_entity_id": "Script RF (pulsar)"
+          "open_script_entity_id": "Script RF (pulsar)",
+          "travelling_time_up": "Tempo de subida (s)",
+          "travelling_time_down": "Tempo de descida (s)",
+          "close_contact_sensor_entity_id": "Sensor de contacto (fechado)",
+          "open_contact_sensor_entity_id": "Sensor de contacto (aberto)",
+          "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
+          "always_confident": "Assumir sempre posição correta",
+          "smart_stop_midrange": "Parar automaticamente entre 20–80%",
+          "aliases": "Aliases",
+          "single_control_pulse_delay_ms": "Atraso entre pulsos (ms)"
         }
       }
     },
@@ -55,7 +64,21 @@
       "step": {
         "init": {
           "title": "Opções — Cover Time Based Sync",
-          "description": "Ajuste conforme o seu modo."
+          "description": "Ajuste conforme o seu modo.",
+          "data": {
+            "travelling_time_up": "Tempo de subida (s)",
+            "travelling_time_down": "Tempo de descida (s)",
+            "open_script_entity_id": "Script RF (pulsar)",
+            "close_script_entity_id": "Script de fecho",
+            "stop_script_entity_id": "Script de parar",
+            "close_contact_sensor_entity_id": "Sensor de contacto (fechado)",
+            "open_contact_sensor_entity_id": "Sensor de contacto (aberto)",
+            "single_control_pulse_delay_ms": "Atraso entre pulsos (ms)",
+            "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
+            "always_confident": "Assumir sempre posição correta",
+            "smart_stop_midrange": "Parar automaticamente entre 20–80%",
+            "aliases": "Aliases"
+          }
         }
       }
     },
