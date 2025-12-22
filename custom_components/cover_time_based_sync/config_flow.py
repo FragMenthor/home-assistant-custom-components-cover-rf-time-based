@@ -64,6 +64,7 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
         """Passo 1: escolher modo (Controlo Único ON/OFF) e atraso de pulsos."""
         if user_input is not None:
             single = bool(user_input.get(CONF_SINGLE_CONTROL_ENABLED, False))
+            # guardar para passo seguinte
             self._pulse_ms = int(user_input.get(CONF_SINGLE_CONTROL_PULSE_MS, DEFAULT_PULSE_MS))
             if single:
                 return await self.async_step_single()
@@ -183,14 +184,17 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
     # ---------- Options Flow ----------
     @staticmethod
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        """Devolve o Options Flow, recebendo o config_entry."""
         return OptionsFlowHandler(config_entry)
 
 
 class OptionsFlowHandler(OptionsFlow):
     """Gestão de opções com UX adaptativa por modo."""
+
     def __init__(self, config_entry: ConfigEntry) -> None:
         super().__init__()
-        self.config_entry = config_entry
+        # GUARDA o config_entry para uso posterior
+        self.config_entry: ConfigEntry = config_entry
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         entry = self.config_entry
