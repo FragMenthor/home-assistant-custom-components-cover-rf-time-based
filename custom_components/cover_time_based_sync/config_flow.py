@@ -1,7 +1,7 @@
 """Config flow para Cover Time Based Sync com modo 'Controlo Único' (RF)."""
 from __future__ import annotations
 
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 import voluptuous as vol
 
 from homeassistant.config_entries import (
@@ -184,20 +184,22 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
     # ---------- Options Flow ----------
     @staticmethod
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
-        """Devolve o Options Flow, recebendo o config_entry."""
+        """Devolve o Options Flow, compatível com versões antigas/novas do HA."""
         return OptionsFlowHandler(config_entry)
 
 
 class OptionsFlowHandler(OptionsFlow):
-    """Gestão de opções com UX adaptativa por modo."""
+    """Gestão de opções com UX adaptativa por modo (compatível HA antigo/novo)."""
 
-    def __init__(self, config_entry: ConfigEntry) -> None:
-        super().__init__()
-        # Guarda o config_entry para uso posterior
-        self.config_entry: ConfigEntry = config_entry
+    def __init__(self, config_entry: Optional[ConfigEntry] = None) -> None:
+        # Em versões novas do HA, OptionsFlow já tem self.config_entry.
+        # Em versões antigas, recebemos config_entry no construtor.
+        if config_entry is not None:
+            self.config_entry = config_entry  # type: ignore[attr-defined]
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        entry = self.config_entry
+        # Em HA novo, self.config_entry é injetado; em antigo, definimos acima.
+        entry: ConfigEntry = getattr(self, "config_entry")
         single = bool(entry.data.get(CONF_SINGLE_CONTROL_ENABLED, False))
         data = entry.data
         options = entry.options
