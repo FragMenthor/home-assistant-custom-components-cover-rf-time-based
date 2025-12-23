@@ -1,4 +1,3 @@
-
 set_known_position:
   name: "Definir posição conhecida"
   description: "Define manualmente a posição conhecida de uma cobertura."
