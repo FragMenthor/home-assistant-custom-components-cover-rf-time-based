@@ -1,3 +1,4 @@
+
 {
   "config": {
     "step": {
@@ -21,8 +22,7 @@
           "open_contact_sensor_entity_id": "Sensor de contacto (aberto)",
           "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
           "always_confident": "Assumir sempre posição correta",
-          "smart_stop_midrange": "Parar automaticamente entre 20–80%",
-          "aliases": "Aliases"
+          "smart_stop_midrange": "Parar automaticamente entre 20–80%"
         }
       },
       "multi": {
@@ -39,8 +39,7 @@
           "open_contact_sensor_entity_id": "Sensor de contacto (aberto)",
           "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
           "always_confident": "Assumir sempre posição correta",
-          "smart_stop_midrange": "Parar automaticamente entre 20–80%",
-          "aliases": "Aliases"
+          "smart_stop_midrange": "Parar automaticamente entre 20–80%"
         }
       },
       "reconfigure": {
@@ -55,7 +54,6 @@
           "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
           "always_confident": "Assumir sempre posição correta",
           "smart_stop_midrange": "Parar automaticamente entre 20–80%",
-          "aliases": "Aliases",
           "single_control_pulse_delay_ms": "Atraso entre pulsos (ms)"
         }
       }
@@ -76,8 +74,7 @@
             "single_control_pulse_delay_ms": "Atraso entre pulsos (ms)",
             "send_stop_at_ends": "Enviar 'stop' ao atingir 0% / 100%",
             "always_confident": "Assumir sempre posição correta",
-            "smart_stop_midrange": "Parar automaticamente entre 20–80%",
-            "aliases": "Aliases"
+            "smart_stop_midrange": "Parar automaticamente entre 20–80%"
           }
         }
       }
