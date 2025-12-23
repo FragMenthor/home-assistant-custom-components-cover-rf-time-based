@@ -27,4 +27,20 @@ CONF_SINGLE_CONTROL_ENABLED: str = "single_control_enabled"
 CONF_SINGLE_CONTROL_PULSE_MS: str = "single_control_pulse_delay_ms"  # atraso entre pulsos
 
 # -----------------------------#
-#
+# Serviços
+# -----------------------------#
+SERVICE_SET_KNOWN_POSITION: str = "set_known_position"
+SERVICE_SET_KNOWN_ACTION: str = "set_known_action"
+SERVICE_ACTIVATE_SCRIPT: str = "activate_script"  # novo serviço
+
+# Atributos aceites
+ATTR_POSITION: str = "position"  # 0..100
+ATTR_CONFIDENT: str = "confident"  # bool
+ATTR_POSITION_TYPE: str = "position_type"  # "current" | "target"
+ATTR_POSITION_TYPE_TARGET: str = "target"
+
+# Ações
+ATTR_ACTION: str = "action"  # "open" | "close" | "stop"
+ACTION_OPEN: str = "open"
+ACTION_CLOSE: str = "close"
+ACTION_STOP: str = "stop"
