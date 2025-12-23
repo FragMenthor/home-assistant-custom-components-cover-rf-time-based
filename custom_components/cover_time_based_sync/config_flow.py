@@ -244,7 +244,7 @@ class OptionsFlowHandler(OptionsFlow):
             vol.Required(CONF_TRAVELLING_TIME_DOWN, default=o.get(CONF_TRAVELLING_TIME_DOWN, d.get(CONF_TRAVELLING_TIME_DOWN, DEFAULT_TRAVEL_TIME))): int,
             vol.Optional(CONF_SEND_STOP_AT_ENDS, default=o.get(CONF_SEND_STOP_AT_ENDS, d.get(CONF_SEND_STOP_AT_ENDS, False))): bool,
             vol.Optional(CONF_ALWAYS_CONFIDENT, default=o.get(CONF_ALWAYS_CONFIDENT, d.get(CONF_ALWAYS_CONFIDENT, False))): bool,
-            vol.Optional(CONF_SMART_STOP, default{o.get(CONF_SMART_STOP, d.get(CONF_SMART_STOP, False))}): bool,
+            vol.Optional(CONF_SMART_STOP, default=o.get(CONF_SMART_STOP, d.get(CONF_SMART_STOP, False))): bool,
         }
         if single:
             _entity_optional(sch, CONF_OPEN_SCRIPT, o.get(CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT)), "script")
