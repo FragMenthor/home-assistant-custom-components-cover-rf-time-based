@@ -127,7 +127,6 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     def _first_script(self) -> Optional[str]:
         for key in (CONF_OPEN_SCRIPT, CONF_CLOSE_SCRIPT, CONF_STOP_SCRIPT):
             val = self._opt_or_data(key)
-        # noqa: SIM115
             if isinstance(val, str) and val:
                 return val
         return None
@@ -297,8 +296,12 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         closing = self.is_closing
 
         if target_action == NEXT_STOP:
-            await self._single_pulses(1)
-            await self._set_next_action(NEXT_CLOSE if opening else NEXT_OPEN)
+            # STOP (um pulso) apenas se estiver em movimento
+            if opening or closing:
+                await self._single_pulses(1)
+                await self._set_next_action(NEXT_CLOSE if opening else NEXT_OPEN)
+            else:
+                _LOGGER.debug("%s: STOP pedido em modo RF mas a cover está parada — pulso ignorado.", self.entity_id)
             return
 
         if target_action == NEXT_OPEN:
@@ -413,12 +416,14 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
                 if self._send_stop_at_ends and drive_scripts:
                     await self._start_stop()
                 elif self._send_stop_at_ends and self._single_control_enabled:
-                    await self._ensure_action_single(NEXT_STOP)
+                    # RF: STOP só se em movimento; aqui estamos parados, portanto não pulsar
+                    pass
             else:
                 if self._smart_stop_midrange and drive_scripts:
                     await self._start_stop()
                 elif self._smart_stop_midrange and self._single_control_enabled:
-                    await self._ensure_action_single(NEXT_STOP)
+                    # RF: idem acima
+                    pass
             return
 
         direction = "up" if target > self._position else "down"
@@ -459,8 +464,8 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
                         if self._send_stop_at_ends:
                             if drive_scripts:
                                 await self._start_stop()
-                            elif self._single_control_enabled:
-                                await self._ensure_action_single(NEXT_STOP)
+                            elif self._single_control_enabled and (self.is_opening or self.is_closing):
+                                await self._ensure_action_single(NEXT_STOP)  # RF: STOP (1 pulso) se em movimento
                         await self._set_next_action(NEXT_OPEN if self._position == 0 else NEXT_CLOSE)
                         self._calc.stop()
                         break
@@ -469,8 +474,8 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
                     if should_midrange_stop and self._position == target:
                         if drive_scripts:
                             await self._start_stop()
-                        elif self._single_control_enabled:
-                            await self._ensure_action_single(NEXT_STOP)
+                        elif self._single_control_enabled and (self.is_opening or self.is_closing):
+                            await self._ensure_action_single(NEXT_STOP)  # RF: STOP (1 pulso) se em movimento
                         await self._set_next_action(NEXT_CLOSE if direction == "up" else NEXT_OPEN)
                         self._calc.stop()
                         break
