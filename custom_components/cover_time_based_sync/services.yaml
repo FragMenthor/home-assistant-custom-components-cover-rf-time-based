@@ -1,3 +1,4 @@
+
 set_known_position:
   name: "Definir posição conhecida"
   description: "Define manualmente a posição conhecida de uma cobertura."
@@ -43,6 +44,29 @@ set_known_action:
       description: "A ação atual."
       required: true
       example: "open"
+      selector:
+        select:
+          options:
+            - "open"
+            - "close"
+            - "stop"
+
+activate_script:
+  name: "Ativar script configurado"
+  description: >
+    Executa o(s) script(s) configurado(s) e sincroniza o comportamento da cover:
+    - Se a ação for "open": inicia simulação de abertura até 100%.
+    - Se "close": inicia simulação de fecho até 0%.
+    - Se "stop": para imediatamente no ponto atual.
+    Em modo 'Controlo Único' (RF) ignora o campo 'action' e usa a "próxima ação" interna.
+  target:
+    entity:
+      domain: cover
+  fields:
+    action:
+      name: "Ação (apenas modo Standard)"
+      description: "Escolha: 'open' | 'close' | 'stop'. Ignorado em modo Controlo Único."
+      required: false
       selector:
         select:
           options:
