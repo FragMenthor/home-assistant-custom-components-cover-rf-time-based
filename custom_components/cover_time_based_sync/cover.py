@@ -1,4 +1,3 @@
-
 # custom_components/cover_time_based_sync/cover.py
 """Cover Time Based Sync — entidade Cover baseada em tempo, com scripts,
 sensores de contacto e modo 'Controlo Único' (RF) nativo com próxima ação em atributo."""
@@ -146,18 +145,19 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         return None
 
     def _update_supported_features(self) -> None:
+        """Atualiza _attr_supported_features (apenas próxima ação em RF; todos em Standard)."""
         base = CoverEntityFeature.SET_POSITION
         if not self._single_control_enabled:
             self._attr_supported_features = base | CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE | CoverEntityFeature.STOP
             return
-        # Modo RF: apenas a próxima ação
-        match self._single_next_action:
-            case NEXT_OPEN:
-                self._attr_supported_features = base | CoverEntityFeature.OPEN
-            case NEXT_CLOSE:
-                self._attr_supported_features = base | CoverEntityFeature.CLOSE
-            case _:
-                self._attr_supported_features = base | CoverEntityFeature.STOP
+        # Modo RF: apenas o botão da próxima ação (evitar match/case para compat. Python 3.13)
+        if self._single_next_action == NEXT_OPEN:
+            self._attr_supported_features = base | CoverEntityFeature.OPEN
+        elif self._single_next_action == NEXT_CLOSE:
+            self._attr_supported_features = base | CoverEntityFeature.CLOSE
+        else:
+            # NEXT_STOP (ou qualquer outro valor cai aqui por segurança)
+            self._attr_supported_features = base | CoverEntityFeature.STOP
 
     def _publish_state(self, *, recompute_features: bool = True) -> None:
         if recompute_features:
@@ -606,7 +606,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             return
         async with self._op_lock:
             if self._single_control_enabled:
-                # Usa a próxima ação
+                # Usa a próxima ação — evitar pulso duplicado no STOP
                 if self._single_next_action == NEXT_OPEN:
                     await self._start_action(NEXT_OPEN)
                     await self._move_to_target(100, drive_scripts=False)
@@ -614,7 +614,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
                     await self._start_action(NEXT_CLOSE)
                     await self._move_to_target(0, drive_scripts=False)
                 else:
-                    await self._start_action(NEXT_STOP)
+                    # Apenas parar (um pulso se estiver em movimento)
                     await self.async_stop_cover()
                 return
 
