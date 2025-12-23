@@ -113,6 +113,22 @@ data:
   action: open
 ```
 
+### `cover_time_based_sync.activate_script`
+Executa o script correspondente: **single**, **open**, **close**, **stop**.
+```yaml
+service: cover_time_based_sync.activate_script
+target:
+  entity_id: cover.portao
+```
+or
+```yaml
+service: cover_time_based_sync.activate_script
+target:
+  entity_id: cover.estore
+data:
+  action: close
+```
+
 ---
 
 Estrutura de pastas
