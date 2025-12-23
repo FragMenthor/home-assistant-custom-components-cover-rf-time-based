@@ -124,7 +124,7 @@ or
 ```yaml
 service: cover_time_based_sync.activate_script
 target:
-  entity_id: cover.estore
+  entity_id: cover.portao
 data:
   action: close
 ```
