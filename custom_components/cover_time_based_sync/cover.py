@@ -43,11 +43,12 @@ from .travelcalculator import TravelCalculator
 _LOGGER = logging.getLogger(__name__)
 SIGNAL_SET_KNOWN_POSITION = f"{DOMAIN}_set_known_position"
 SIGNAL_SET_KNOWN_ACTION = f"{DOMAIN}_set_known_action"
+SIGNAL_ACTIVATE_SCRIPT = f"{DOMAIN}_activate_script"  # novo
 
 DEFAULT_TRAVEL_TIME = 25
 MID_RANGE_LOW = 20
 MID_RANGE_HIGH = 80
-UPDATE_INTERVAL_SEC = 1.0
+UPDATE_INTERVAL_SEC = 0.5  # <— alterado
 
 NEXT_OPEN = "open"
 NEXT_CLOSE = "close"
@@ -102,6 +103,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         self._unsub_known_action = None
         self._unsub_close_contact = None
         self._unsub_open_contact = None
+        self._unsub_activate_script = None  # novo
 
         self._calc: Optional[TravelCalculator] = None
 
@@ -203,6 +205,9 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         self._unsub_known_action = async_dispatcher_connect(
             self.hass, SIGNAL_SET_KNOWN_ACTION, self._dispatcher_set_known_action
         )
+        self._unsub_activate_script = async_dispatcher_connect(
+            self.hass, SIGNAL_ACTIVATE_SCRIPT, self._dispatcher_activate_script
+        )
 
         # Sensores de contacto (opcionais) — estado inicial (invertido)
         if self._close_contact_sensor_id:
@@ -230,6 +235,8 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             self._unsub_close_contact(); self._unsub_close_contact = None
         if self._unsub_open_contact:
             self._unsub_open_contact(); self._unsub_open_contact = None
+        if self._unsub_activate_script:
+            self._unsub_activate_script(); self._unsub_activate_script = None
 
     # -------- Propriedades --------
     @property
@@ -251,21 +258,17 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     @property
     def supported_features(self) -> int:
         base = CoverEntityFeature.SET_POSITION  # slider sempre disponível
-        # STOP deve estar disponível se houver movimento OU se a próxima ação conhecida for 'stop'
         must_show_stop = bool(self._moving_direction) or (self._single_control_enabled and self._single_next_action == NEXT_STOP)
         moving_or_next_stop = CoverEntityFeature.STOP if must_show_stop else 0
 
         if not self._single_control_enabled:
-            # Modo standard: todos os botões (OPEN/CLOSE/STOP)
             return base | CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE | CoverEntityFeature.STOP
 
-        # Modo Controlo Único (RF): apenas ação válida + STOP quando em movimento ou next_action==stop
         next_act = self._single_next_action
         if next_act == NEXT_OPEN:
             return base | CoverEntityFeature.OPEN | moving_or_next_stop
         if next_act == NEXT_CLOSE:
             return base | CoverEntityFeature.CLOSE | moving_or_next_stop
-        # NEXT_STOP → STOP deve estar disponível
         return base | CoverEntityFeature.STOP
 
     # -------- Helpers Controlo Único --------
@@ -302,21 +305,21 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
 
         if target_action == NEXT_OPEN:
             if opening:
-                await self._single_pulses(1)  # reforça ordem explícita
+                await self._single_pulses(1)
             elif closing:
                 await self._single_pulses(2)  # parar + abrir
             else:
-                await self._single_pulses(1)  # abrir
+                await self._single_pulses(1)
             await self._set_next_action(NEXT_STOP)
             return
 
         if target_action == NEXT_CLOSE:
             if closing:
-                await self._single_pulses(1)  # reforça ordem explícita
+                await self._single_pulses(1)
             elif opening:
                 await self._single_pulses(2)  # parar + fechar
             else:
-                await self._single_pulses(1)  # fechar
+                await self._single_pulses(1)
             await self._set_next_action(NEXT_STOP)
             return
 
@@ -468,7 +471,6 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             "always_confident": self._always_confident,
             "smart_stop_midrange": self._smart_stop_midrange,
             "current_position": self._position,
-            # Controlo Único (nativo)
             "single_control_enabled": self._single_control_enabled,
             "single_control_rf_script_entity_id": self._single_control_script_id,
             "single_control_pulse_delay_ms": self._single_pulse_delay_ms,
@@ -550,6 +552,54 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         else:
             _LOGGER.debug("%s: ação desconhecida '%s' — ignorar.", self.entity_id, action)
 
+    def _dispatcher_activate_script(  # callback síncrono que agenda tarefas
+        self,
+        target_entities: str | list[str] | None,
+        action: str | None,
+    ) -> None:
+        if not self._matches_target_entities(target_entities):
+            return
+
+        if self._single_control_enabled:
+            # Usa a próxima ação interna e executa sequência: pulsos + simulação movimento/paragem
+            target_action = self._single_next_action
+
+            async def do_single() -> None:
+                if target_action == NEXT_OPEN:
+                    await self._ensure_action_single(NEXT_OPEN)
+                    await self._move_to_target(100, drive_scripts=False)
+                elif target_action == NEXT_CLOSE:
+                    await self._ensure_action_single(NEXT_CLOSE)
+                    await self._move_to_target(0, drive_scripts=False)
+                elif target_action == NEXT_STOP:
+                    await self._ensure_action_single(NEXT_STOP)
+                    await self._stop_motion()
+
+            self.hass.async_create_task(do_single())
+            return
+
+        # Modo Standard: seguir 'action' fornecida (script + movimento/paragem)
+        if not action:
+            _LOGGER.debug("%s: activate_script sem 'action' no modo Standard — ignorar.", self.entity_id)
+            return
+
+        action = str(action).lower().strip()
+
+        async def do_standard() -> None:
+            if action == NEXT_OPEN:
+                await self._run_script(self._open_script_id)
+                await self._move_to_target(100, drive_scripts=False)
+            elif action == NEXT_CLOSE:
+                await self._run_script(self._close_script_id)
+                await self._move_to_target(0, drive_scripts=False)
+            elif action == NEXT_STOP:
+                await self._run_script(self._stop_script_id)
+                await self._stop_motion()
+            else:
+                _LOGGER.debug("%s: ação inválida '%s' em activate_script — ignorar.", self.entity_id, action)
+
+        self.hass.async_create_task(do_standard())
+
     # -------- Sensores binários (INVERTIDOS) --------
     async def _apply_contact_hit(self, forced_position: int, *, source_entity: Optional[str] = None) -> None:
         """Contacto extremo: posição CONFIRMED, cancela movimento; ajusta próxima ação; opcional stop."""
@@ -582,12 +632,10 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         ns = str(new_state.state).lower()
         os = str(old_state.state).lower() if old_state else None
 
-        # OFF -> posição 0% confirmada
         if ns == "off":
             await self._apply_contact_hit(0, source_entity=self._close_contact_sensor_id)
             return
 
-        # ON (era OFF): saiu do fim-de-curso fechado -> ABRIR virtualmente
         if ns == "on" and os == "off":
             if not self._moving_task:
                 await self._move_to_target_virtual(100)
@@ -601,12 +649,10 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         ns = str(new_state.state).lower()
         os = str(old_state.state).lower() if old_state else None
 
-        # OFF -> posição 100% confirmada
         if ns == "off":
             await self._apply_contact_hit(100, source_entity=self._open_contact_sensor_id)
             return
 
-        # ON (era OFF): saiu do fim-de-curso aberto -> FECHAR virtualmente
         if ns == "on" and os == "off":
             if not self._moving_task:
                 await self._move_to_target_virtual(0)
