@@ -21,8 +21,7 @@
           "open_contact_sensor_entity_id": "Open contact sensor (binary_sensor)",
           "send_stop_at_ends": "Send 'stop' at 0% / 100%",
           "always_confident": "Assume position is always correct",
-          "smart_stop_midrange": "Auto stop between 20–80%",
-          "aliases": "Aliases"
+          "smart_stop_midrange": "Auto stop between 20–80%"
         }
       },
       "multi": {
@@ -39,8 +38,7 @@
           "open_contact_sensor_entity_id": "Open contact sensor (binary_sensor)",
           "send_stop_at_ends": "Send 'stop' at 0% / 100%",
           "always_confident": "Assume position is always correct",
-          "smart_stop_midrange": "Auto stop between 20–80%",
-          "aliases": "Aliases"
+          "smart_stop_midrange": "Auto stop between 20–80%"
         }
       },
       "reconfigure": {
@@ -55,7 +53,6 @@
           "send_stop_at_ends": "Send 'stop' at 0% / 100%",
           "always_confident": "Assume position is always correct",
           "smart_stop_midrange": "Auto stop between 20–80%",
-          "aliases": "Aliases",
           "single_control_pulse_delay_ms": "Pulse delay between presses (ms)"
         }
       }
@@ -76,8 +73,7 @@
             "single_control_pulse_delay_ms": "Pulse delay between presses (ms)",
             "send_stop_at_ends": "Send 'stop' at 0% / 100%",
             "always_confident": "Assume position is always correct",
-            "smart_stop_midrange": "Auto stop between 20–80%",
-            "aliases": "Aliases"
+            "smart_stop_midrange": "Auto stop between 20–80%"
           }
         }
       }
