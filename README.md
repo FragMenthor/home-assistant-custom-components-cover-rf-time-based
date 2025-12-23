@@ -20,7 +20,7 @@ Inclui sensores de contacto opcionais (aberto/fechado) para confirmar a posiçã
   - `stop_script_entity_id` (parar)
 
 ### Controlo Único (RF)
-- Ideal para motores RF com **um só botão**.
+- Ideal para motores RF com **um só botão ou comando**.
 - Usa **um único script** (“RF pulse script”).
 - Alterna automaticamente ações e prevê a próxima ação:
   - sequência típica: `abrir → parar → fechar → parar → abrir → ...`
@@ -35,7 +35,6 @@ Inclui sensores de contacto opcionais (aberto/fechado) para confirmar a posiçã
 - `send_stop_at_ends` → envia `stop` ao atingir **0%/100%**.
 - `smart_stop_midrange` → para automaticamente em alvos intermédios (20–80%).
 - `always_confident` → assume posição como confiável.
-- `aliases` → nomes alternativos (CSV).
 
 ---
 
