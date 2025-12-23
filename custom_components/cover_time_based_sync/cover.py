@@ -133,24 +133,34 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         return None
 
     def _update_supported_features(self) -> None:
-        """Atualiza _attr_supported_features (apenas próxima ação em RF; todos em Standard)."""
+        """Atualiza _attr_supported_features respeitando limitações do UI nativo."""
         base = CoverEntityFeature.SET_POSITION
+        # Modo normal (não RF): tudo disponível
         if not self._single_control_enabled:
-            self._attr_supported_features = base | CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE | CoverEntityFeature.STOP
+            self._attr_supported_features = (
+                base
+                | CoverEntityFeature.OPEN
+                | CoverEntityFeature.CLOSE
+                | CoverEntityFeature.STOP
+            )
             return
-        # Modo RF: apenas próximo botão
+        # ⚠️ REGRA DO FRONTEND: Durante movimento, o UI exige OPEN+CLOSE+STOP para mostrar STOP
+        if self.is_opening or self.is_closing:
+            self._attr_supported_features = (
+                base
+                | CoverEntityFeature.OPEN
+                | CoverEntityFeature.CLOSE
+                | CoverEntityFeature.STOP
+            )
+            return
+        # Parado → apenas próxima ação real
         if self._single_next_action == NEXT_OPEN:
             self._attr_supported_features = base | CoverEntityFeature.OPEN
         elif self._single_next_action == NEXT_CLOSE:
             self._attr_supported_features = base | CoverEntityFeature.CLOSE
         else:
             self._attr_supported_features = base | CoverEntityFeature.STOP
-
-    async def _set_next_action(self, next_action: str) -> None:
-        self._single_next_action = next_action
-        self._update_supported_features()
-        self.async_write_ha_state()
-
+            
     # -------- Propriedades --------
     @property
     def current_cover_position(self) -> int | None:
