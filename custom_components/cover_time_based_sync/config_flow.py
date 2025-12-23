@@ -1,9 +1,7 @@
 """Config flow para Cover Time Based Sync com modo 'Controlo Único' (RF)."""
 from __future__ import annotations
-
 from typing import Any, Dict
 import voluptuous as vol
-
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
@@ -21,7 +19,6 @@ from .const import (
     CONF_CLOSE_SCRIPT,
     CONF_STOP_SCRIPT,
     CONF_SEND_STOP_AT_ENDS,
-    CONF_ALIASES,
     CONF_ALWAYS_CONFIDENT,
     CONF_SMART_STOP,
     CONF_OPEN_CONTACT_SENSOR,
@@ -59,6 +56,7 @@ def _entity_optional(
 
 class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
     """Fluxo de configuração para Cover Time Based Sync."""
+
     VERSION = 1
 
     async def async_step_user(
@@ -97,7 +95,6 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
                 title=user_input.get(CONF_NAME, "Cover Time Based Sync"),
                 data=data,
             )
-
         return self.async_show_form(step_id="single", data_schema=self._schema_single())
 
     async def async_step_multi(
@@ -111,10 +108,9 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
                 title=user_input.get(CONF_NAME, "Cover Time Based Sync"),
                 data=data,
             )
-
         return self.async_show_form(step_id="multi", data_schema=self._schema_multi())
 
-    # ---------- Schemas ----------
+    # ----------- Schemas -----------
     def _schema_single(self, defaults: dict[str, Any] | None = None) -> vol.Schema:
         d = defaults or {}
         sch: Dict[Any, Any] = {
@@ -124,7 +120,6 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
             vol.Optional(CONF_SEND_STOP_AT_ENDS, default=d.get(CONF_SEND_STOP_AT_ENDS, False)): bool,
             vol.Optional(CONF_SMART_STOP, default=d.get(CONF_SMART_STOP, False)): bool,
             vol.Optional(CONF_ALWAYS_CONFIDENT, default=d.get(CONF_ALWAYS_CONFIDENT, False)): bool,
-            vol.Optional(CONF_ALIASES, default=d.get(CONF_ALIASES, "")): str,
         }
         # Script único (RF pulsar) — usa-se o primeiro script fornecido
         _entity_optional(sch, CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT), "script")
@@ -142,7 +137,6 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
             vol.Optional(CONF_SEND_STOP_AT_ENDS, default=d.get(CONF_SEND_STOP_AT_ENDS, False)): bool,
             vol.Optional(CONF_SMART_STOP, default=d.get(CONF_SMART_STOP, False)): bool,
             vol.Optional(CONF_ALWAYS_CONFIDENT, default=d.get(CONF_ALWAYS_CONFIDENT, False)): bool,
-            vol.Optional(CONF_ALIASES, default=d.get(CONF_ALIASES, "")): str,
         }
         # Três scripts (opcionais)
         _entity_optional(sch, CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT), "script")
@@ -153,7 +147,7 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
         _entity_optional(sch, CONF_OPEN_CONTACT_SENSOR, d.get(CONF_OPEN_CONTACT_SENSOR), "binary_sensor")
         return vol.Schema(sch)
 
-    # ---------- Reconfigure ----------
+    # ----------- Reconfigure -----------
     async def async_step_reconfigure(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
@@ -168,8 +162,8 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
             if not entry_id:
                 return self.async_abort(reason="unknown_entry")
             entry = self.hass.config_entries.async_get_entry(entry_id)
-            if entry is None:
-                return self.async_abort(reason="unknown_entry")
+        if entry is None:
+            return self.async_abort(reason="unknown_entry")
 
         single = bool(entry.data.get(CONF_SINGLE_CONTROL_ENABLED, False))
 
@@ -185,6 +179,7 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
             updater = getattr(self, "async_update_reload_and_abort", None)
             if callable(updater):
                 return self.async_update_reload_and_abort(entry, data_updates=user_input)
+
             # Fallback manual:
             self.hass.config_entries.async_update_entry(
                 entry, data={**entry.data, **user_input}
@@ -209,8 +204,8 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
             vol.Optional(CONF_SEND_STOP_AT_ENDS, default=d.get(CONF_SEND_STOP_AT_ENDS, False)): bool,
             vol.Optional(CONF_ALWAYS_CONFIDENT, default=d.get(CONF_ALWAYS_CONFIDENT, False)): bool,
             vol.Optional(CONF_SMART_STOP, default=d.get(CONF_SMART_STOP, False)): bool,
-            vol.Optional(CONF_ALIASES, default=d.get(CONF_ALIASES, "")): str,
         }
+
         if single:
             _entity_optional(sch, CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT), "script")
             _entity_optional(sch, CONF_CLOSE_CONTACT_SENSOR, d.get(CONF_CLOSE_CONTACT_SENSOR), "binary_sensor")
@@ -222,9 +217,10 @@ class CoverTimeBasedSyncFlowHandler(ConfigFlow, domain=DOMAIN):
             _entity_optional(sch, CONF_STOP_SCRIPT, d.get(CONF_STOP_SCRIPT), "script")
             _entity_optional(sch, CONF_CLOSE_CONTACT_SENSOR, d.get(CONF_CLOSE_CONTACT_SENSOR), "binary_sensor")
             _entity_optional(sch, CONF_OPEN_CONTACT_SENSOR, d.get(CONF_OPEN_CONTACT_SENSOR), "binary_sensor")
+
         return vol.Schema(sch)
 
-    # ---------- Options Flow ----------
+    # ----------- Options Flow -----------
     @staticmethod
     def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
         """Criar o Options Flow (padrão atual: sem passar config_entry)."""
@@ -236,7 +232,6 @@ class OptionsFlowHandler(OptionsFlow):
 
     def __init__(self) -> None:
         # Em HA recente, self.config_entry é injetado automaticamente.
-        # Não recebemos config_entry aqui.
         super().__init__()
 
     async def async_step_init(
@@ -275,8 +270,8 @@ class OptionsFlowHandler(OptionsFlow):
             vol.Optional(CONF_SEND_STOP_AT_ENDS, default=o.get(CONF_SEND_STOP_AT_ENDS, d.get(CONF_SEND_STOP_AT_ENDS, False))): bool,
             vol.Optional(CONF_ALWAYS_CONFIDENT, default=o.get(CONF_ALWAYS_CONFIDENT, d.get(CONF_ALWAYS_CONFIDENT, False))): bool,
             vol.Optional(CONF_SMART_STOP, default=o.get(CONF_SMART_STOP, d.get(CONF_SMART_STOP, False))): bool,
-            vol.Optional(CONF_ALIASES, default=o.get(CONF_ALIASES, d.get(CONF_ALIASES, ""))): str,
         }
+
         if single:
             _entity_optional(sch, CONF_OPEN_SCRIPT, o.get(CONF_OPEN_SCRIPT, d.get(CONF_OPEN_SCRIPT)), "script")
             _entity_optional(sch, CONF_CLOSE_CONTACT_SENSOR, o.get(CONF_CLOSE_CONTACT_SENSOR, d.get(CONF_CLOSE_CONTACT_SENSOR)), "binary_sensor")
@@ -288,5 +283,5 @@ class OptionsFlowHandler(OptionsFlow):
             _entity_optional(sch, CONF_STOP_SCRIPT, o.get(CONF_STOP_SCRIPT, d.get(CONF_STOP_SCRIPT)), "script")
             _entity_optional(sch, CONF_CLOSE_CONTACT_SENSOR, o.get(CONF_CLOSE_CONTACT_SENSOR, d.get(CONF_CLOSE_CONTACT_SENSOR)), "binary_sensor")
             _entity_optional(sch, CONF_OPEN_CONTACT_SENSOR, o.get(CONF_OPEN_CONTACT_SENSOR, d.get(CONF_OPEN_CONTACT_SENSOR)), "binary_sensor")
+
         return vol.Schema(sch)
-        
