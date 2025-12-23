@@ -31,7 +31,7 @@ from .const import (
 )
 
 DEFAULT_TRAVEL_TIME = 25
-DEFAULT_PULSE_MS = 400
+DEFAULT_PULSE_MS = 2500
 
 
 def _first_script(data: dict[str, Any]) -> str | None:
