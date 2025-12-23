@@ -80,6 +80,10 @@
     },
     "error": {
       "single_control_requires_script": "Single Control requires at least one script entity."
+    },
+    "abort": {
+      "unknown_entry": "Unknown entry",
+      "reconfigure_successful": "Reconfiguration completed"
     }
   }
 }
