@@ -1,3 +1,4 @@
+
 # custom_components/cover_time_based_sync/cover.py
 """Cover Time Based Sync — entidade Cover baseada em tempo, com scripts,
 sensores de contacto e modo 'Controlo Único' (RF) nativo com próxima ação em atributo."""
@@ -48,7 +49,7 @@ SIGNAL_ACTIVATE_SCRIPT = f"{DOMAIN}_activate_script"  # novo
 DEFAULT_TRAVEL_TIME = 25
 MID_RANGE_LOW = 20
 MID_RANGE_HIGH = 80
-UPDATE_INTERVAL_SEC = 0.5  # <— alterado
+UPDATE_INTERVAL_SEC = 0.5  # solicitado
 
 NEXT_OPEN = "open"
 NEXT_CLOSE = "close"
@@ -258,17 +259,18 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
     @property
     def supported_features(self) -> int:
         base = CoverEntityFeature.SET_POSITION  # slider sempre disponível
-        must_show_stop = bool(self._moving_direction) or (self._single_control_enabled and self._single_next_action == NEXT_STOP)
-        moving_or_next_stop = CoverEntityFeature.STOP if must_show_stop else 0
 
         if not self._single_control_enabled:
+            # Modo standard: todos os botões sempre disponíveis
             return base | CoverEntityFeature.OPEN | CoverEntityFeature.CLOSE | CoverEntityFeature.STOP
 
+        # Modo Controlo Único (RF): mostrar APENAS a próxima ação.
         next_act = self._single_next_action
         if next_act == NEXT_OPEN:
-            return base | CoverEntityFeature.OPEN | moving_or_next_stop
+            return base | CoverEntityFeature.OPEN
         if next_act == NEXT_CLOSE:
-            return base | CoverEntityFeature.CLOSE | moving_or_next_stop
+            return base | CoverEntityFeature.CLOSE
+        # NEXT_STOP
         return base | CoverEntityFeature.STOP
 
     # -------- Helpers Controlo Único --------
@@ -305,21 +307,21 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
 
         if target_action == NEXT_OPEN:
             if opening:
-                await self._single_pulses(1)
+                await self._single_pulses(1)  # reforça ordem explícita
             elif closing:
                 await self._single_pulses(2)  # parar + abrir
             else:
-                await self._single_pulses(1)
+                await self._single_pulses(1)  # abrir
             await self._set_next_action(NEXT_STOP)
             return
 
         if target_action == NEXT_CLOSE:
             if closing:
-                await self._single_pulses(1)
+                await self._single_pulses(1)  # reforça ordem explícita
             elif opening:
                 await self._single_pulses(2)  # parar + fechar
             else:
-                await self._single_pulses(1)
+                await self._single_pulses(1)  # fechar
             await self._set_next_action(NEXT_STOP)
             return
 
@@ -339,18 +341,21 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             await self._ensure_action_single(NEXT_OPEN)
         else:
             await self._run_script(self._open_script_id)
+        self.async_write_ha_state()  # força UI a refrescar
 
     async def _start_close(self) -> None:
         if self._single_control_enabled:
             await self._ensure_action_single(NEXT_CLOSE)
         else:
             await self._run_script(self._close_script_id)
+        self.async_write_ha_state()
 
     async def _start_stop(self) -> None:
         if self._single_control_enabled:
             await self._ensure_action_single(NEXT_STOP)
         else:
             await self._run_script(self._stop_script_id)
+        self.async_write_ha_state()
 
     # -------- Movimento --------
     async def async_open_cover(self, **kwargs: Any) -> None:
@@ -471,6 +476,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
             "always_confident": self._always_confident,
             "smart_stop_midrange": self._smart_stop_midrange,
             "current_position": self._position,
+            # Controlo Único (nativo)
             "single_control_enabled": self._single_control_enabled,
             "single_control_rf_script_entity_id": self._single_control_script_id,
             "single_control_pulse_delay_ms": self._single_pulse_delay_ms,
@@ -552,7 +558,7 @@ class TimeBasedSyncCover(CoverEntity, RestoreEntity):
         else:
             _LOGGER.debug("%s: ação desconhecida '%s' — ignorar.", self.entity_id, action)
 
-    def _dispatcher_activate_script(  # callback síncrono que agenda tarefas
+    def _dispatcher_activate_script(
         self,
         target_entities: str | list[str] | None,
         action: str | None,
