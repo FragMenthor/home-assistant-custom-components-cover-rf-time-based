@@ -1,4 +1,3 @@
-
 {
   "config": {
     "step": {
@@ -81,6 +80,10 @@
     },
     "error": {
       "single_control_requires_script": "O Controlo Único requer pelo menos um script."
+    },
+    "abort": {
+      "unknown_entry": "Entrada desconhecida",
+      "reconfigure_successful": "Reconfiguração concluída"
     }
   }
 }
